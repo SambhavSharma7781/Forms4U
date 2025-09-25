@@ -13,6 +13,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum QuestionType {
+  SHORT_ANSWER
+  PARAGRAPH
+  MULTIPLE_CHOICE
+  CHECKBOXES
+  DROPDOWN
+}
+
 model User {
   id        String     @id @map("_id") @default(auto()) @db.ObjectId
   email     String     @unique
@@ -32,11 +40,12 @@ model Form {
 }
 
 model Question {
-  id        String    @id @map("_id") @default(auto()) @db.ObjectId
+  id        String       @id @map("_id") @default(auto()) @db.ObjectId
   text      String
-  type      String
-  formId    String    @db.ObjectId
-  form      Form      @relation(fields: [formId], references: [id])
+  type      QuestionType
+  required  Boolean      @default(false)
+  formId    String       @db.ObjectId
+  form      Form         @relation(fields: [formId], references: [id])
   options   Option[]
   answers   Answer[]
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   MoreVertical, 
@@ -20,6 +20,13 @@ interface QuestionCardProps {
   initialRequired?: boolean;
   onDelete?: () => void;
   onDuplicate?: () => void;
+  onUpdate?: (data: {
+    id: string;
+    question: string;
+    type: QuestionType;
+    required: boolean;
+    options: string[];
+  }) => void;
 }
 
 export default function QuestionCard({
@@ -28,7 +35,8 @@ export default function QuestionCard({
   initialType = "SHORT_ANSWER",
   initialRequired = false,
   onDelete,
-  onDuplicate
+  onDuplicate,
+  onUpdate
 }: QuestionCardProps) {
   const [question, setQuestion] = useState(initialQuestion);
   const [questionType, setQuestionType] = useState<QuestionType>(initialType);
@@ -39,6 +47,24 @@ export default function QuestionCard({
       ? ["Option 1", ""] 
       : []
   );
+
+  // Notify parent whenever data changes
+  const notifyParent = () => {
+    if (onUpdate && id) {
+      onUpdate({
+        id,
+        question,
+        type: questionType,
+        required,
+        options: options.filter(opt => opt.trim() !== "")
+      });
+    }
+  };
+
+  // Notify parent when key data changes
+  useEffect(() => {
+    notifyParent();
+  }, [question, questionType, required, options]);
 
   const questionTypes = [
     { value: "SHORT_ANSWER", label: "Short answer" },
@@ -59,6 +85,9 @@ export default function QuestionCard({
     } else {
       setOptions([]);
     }
+    
+    // Notify parent after state update
+    setTimeout(notifyParent, 0);
   };
 
   const addOption = () => {

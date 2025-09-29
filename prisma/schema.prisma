@@ -22,7 +22,7 @@ enum QuestionType {
 }
 
 model User {
-  id        String     @id @map("_id") @default(auto()) @db.ObjectId
+  id        String     @id @map("_id")
   email     String     @unique
   forms     Form[]
   responses Response[]
@@ -32,7 +32,7 @@ model Form {
   id          String     @id @map("_id") @default(auto()) @db.ObjectId
   title       String
   description String?
-  createdBy   String     @db.ObjectId
+  createdBy   String
   user        User       @relation(fields: [createdBy], references: [id])
   createdAt   DateTime   @default(now())
   questions   Question[]
@@ -59,7 +59,7 @@ model Option {
 
 model Response {
   id        String     @id @map("_id") @default(auto()) @db.ObjectId
-  userId    String     @db.ObjectId
+  userId    String
   formId    String     @db.ObjectId
   createdAt DateTime   @default(now())
   user      User       @relation(fields: [userId], references: [id])

@@ -10,6 +10,7 @@ interface Question {
   question: string;
   type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
   required: boolean;
+  options?: string[];
 }
 
 export default function CreateFormPage() {
@@ -55,6 +56,49 @@ export default function CreateFormPage() {
     }
   };
 
+  const handleUpdateQuestion = (updatedData: {
+    id: string;
+    question: string;
+    type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
+    required: boolean;
+    options: string[];
+  }) => {
+    setQuestions(questions.map(q => 
+      q.id === updatedData.id 
+        ? { ...q, ...updatedData }
+        : q
+    ));
+  };
+
+  const handleSaveForm = async () => {
+    try {
+      const formData = {
+        title: formTitle,
+        description: formDescription,
+        questions: questions
+      };
+
+      const response = await fetch('/api/forms/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        alert('Form saved successfully!');
+      } else {
+        alert('Error saving form: ' + result.message);
+      }
+    } catch (error) {
+      alert('Error saving form');
+      console.error('Save error:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -97,6 +141,7 @@ export default function CreateFormPage() {
               initialRequired={q.required}
               onDelete={() => handleDeleteQuestion(q.id)}
               onDuplicate={() => handleDuplicateQuestion(q.id)}
+              onUpdate={handleUpdateQuestion}
             />
           ))}
         </div>
@@ -120,7 +165,7 @@ export default function CreateFormPage() {
             <Button variant="outline">← Back to Home</Button>
           </Link>
           <div>
-            <Button variant="outline">Save Draft</Button>
+            <Button variant="outline" onClick={handleSaveForm}>Save Draft</Button>
           </div>
         </div>
 

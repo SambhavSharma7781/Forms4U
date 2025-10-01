@@ -2,10 +2,112 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
+
+interface UserForm {
+  id: string;
+  title: string;
+  description: string | null;
+  createdAt: string;
+  questions: {
+    id: string;
+    text: string;
+    type: string;
+    required: boolean;
+    options: {
+      text: string;
+    }[];
+  }[];
+}
 
 export default function Dashboard() {
-  // Temporary: Later we'll fetch from database
-  const [userForms, setUserForms] = useState<any[]>([]);
+  const { isSignedIn } = useAuth();
+  const [userForms, setUserForms] = useState<UserForm[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Fetch user's forms when component loads
+  useEffect(() => {
+    if (isSignedIn) {
+      fetchUserForms();
+    } else {
+      setLoading(false);
+    }
+  }, [isSignedIn]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => {
+      setOpenMenuId(null);
+    };
+
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
+
+  const fetchUserForms = async () => {
+    try {
+      const response = await fetch('/api/forms/user');
+      const data = await response.json();
+      
+      if (data.success) {
+        setUserForms(data.forms);
+      }
+    } catch (error) {
+      console.error('Error fetching forms:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Action Handlers
+  const handleEditForm = (formId: string) => {
+    window.location.href = `/forms/${formId}`;
+  };
+
+  const handleDuplicateForm = (formId: string) => {
+    console.log('Duplicate form:', formId);
+    // TODO: Implement form duplication
+  };
+
+  const handleMenuToggle = (formId: string) => {
+    setOpenMenuId(openMenuId === formId ? null : formId);
+  };
+
+  const handleRenameForm = (formId: string) => {
+    console.log('Rename form:', formId);
+    setOpenMenuId(null);
+    // TODO: Implement rename functionality
+  };
+
+  const handleOpenInNewTab = (formId: string) => {
+    const url = `/forms/${formId}`;
+    window.open(url, '_blank');
+    setOpenMenuId(null);
+  };
+
+  const handleDeleteForm = async (formId: string) => {
+    // Confirm before deleting
+    if (confirm('Are you sure you want to delete this form?')) {
+      try {
+        const response = await fetch(`/api/forms/delete/${formId}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.ok) {
+          // Remove from UI
+          setUserForms(userForms.filter(form => form.id !== formId));
+          alert('Form deleted successfully!');
+        } else {
+          alert('Error deleting form');
+        }
+      } catch (error) {
+        alert('Error deleting form');
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,13 +135,178 @@ export default function Dashboard() {
           <h2 className="text-lg font-medium text-gray-700 mb-6">Owned by you</h2>
           
           {/* Forms grid - responsive */}
-          {userForms.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {userForms.map((form, index) => (
-                <div key={index} className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer">
-                  <h3 className="font-medium text-gray-900 mb-2">{form.title}</h3>
-                  <p className="text-sm text-gray-600 mb-3">{form.description}</p>
-                  <p className="text-xs text-gray-400">Modified {form.lastModified}</p>
+          {loading ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Loading your forms...</p>
+            </div>
+          ) : userForms.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+              {userForms.map((form) => (
+                <div key={form.id} className="w-56 bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer group">
+                  
+                  {/* Form Preview Area - Click to Edit */}
+                  <div onClick={() => handleEditForm(form.id)} className="relative">
+                    
+                    {/* Clean Professional Preview */}
+                    <div className="h-36 bg-gray-50 overflow-hidden relative rounded-t-lg">
+                      
+                      {/* Blue header stripe */}
+                      <div className="h-1 bg-blue-600 w-full"></div>
+                      
+                      {/* Preview content */}
+                      <div className="p-4 bg-white h-full">
+                        
+                        {/* Form title */}
+                        <div className="mb-3">
+                          <h3 className="text-sm font-semibold text-gray-900 truncate">
+                            {form.title}
+                          </h3>
+                          {form.description && (
+                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">
+                              {form.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Questions summary */}
+                        <div className="space-y-2">
+                          {form.questions.slice(0, 3).map((question, index) => (
+                            <div key={question.id} className="flex items-start space-x-2">
+                              <span className="text-xs text-gray-400 mt-0.5">{index + 1}.</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-700 truncate">
+                                  {question.text || "Untitled question"}
+                                  {question.required && <span className="text-red-500 ml-1">*</span>}
+                                </p>
+                                <div className="flex items-center mt-1">
+                                  {question.type === 'SHORT_ANSWER' && (
+                                    <>
+                                      <div className="w-3 h-0.5 bg-gray-300 mr-2"></div>
+                                      <span className="text-xs text-gray-400">Short answer</span>
+                                    </>
+                                  )}
+                                  {question.type === 'PARAGRAPH' && (
+                                    <>
+                                      <div className="w-3 h-2 border border-gray-300 mr-2"></div>
+                                      <span className="text-xs text-gray-400">Paragraph</span>
+                                    </>
+                                  )}
+                                  {question.type === 'MULTIPLE_CHOICE' && (
+                                    <>
+                                      <div className="w-2 h-2 border border-gray-400 rounded-full mr-2"></div>
+                                      <span className="text-xs text-gray-400">Multiple choice</span>
+                                    </>
+                                  )}
+                                  {question.type === 'CHECKBOXES' && (
+                                    <>
+                                      <div className="w-2 h-2 border border-gray-400 mr-2"></div>
+                                      <span className="text-xs text-gray-400">Checkboxes</span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                          
+                          {form.questions.length > 3 && (
+                            <div className="flex items-center space-x-2 pt-1">
+                              <span className="text-xs text-gray-400">...</span>
+                              <span className="text-xs text-gray-400">
+                                {form.questions.length - 3} more questions
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Form Info Footer */}
+                  <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center space-x-3 flex-1 min-w-0">
+                      {/* Form Icon - Blue */}
+                      <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+                        </svg>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{form.title}</p>
+                        <p className="text-xs text-gray-500">
+                          Modified {new Date(form.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Three Dots Menu */}
+                    <div className="relative flex-shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleMenuToggle(form.id);
+                        }}
+                        className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" />
+                        </svg>
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {openMenuId === form.id && (
+                        <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-10">
+                          <div className="py-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRenameForm(form.id);
+                              }}
+                              className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                              <span>Rename</span>
+                            </button>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenInNewTab(form.id);
+                              }}
+                              className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                              <span>Open in new tab</span>
+                            </button>
+                            
+                            <hr className="my-1" />
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteForm(form.id);
+                              }}
+                              className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <span>Delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

@@ -16,6 +16,7 @@ interface Question {
 export default function CreateFormPage() {
   const [formTitle, setFormTitle] = useState("Untitled form");
   const [formDescription, setFormDescription] = useState("");
+  const [saving, setSaving] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: "1",
@@ -71,6 +72,12 @@ export default function CreateFormPage() {
   };
 
   const handleSaveForm = async () => {
+    if (!formTitle.trim()) {
+      alert('Please add a form title');
+      return;
+    }
+
+    setSaving(true);
     try {
       const formData = {
         title: formTitle,
@@ -90,12 +97,16 @@ export default function CreateFormPage() {
       
       if (result.success) {
         alert('Form saved successfully!');
+        // Redirect to home page after successful save
+        window.location.href = '/';
       } else {
         alert('Error saving form: ' + result.message);
       }
     } catch (error) {
       alert('Error saving form');
       console.error('Save error:', error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -165,7 +176,14 @@ export default function CreateFormPage() {
             <Button variant="outline">← Back to Home</Button>
           </Link>
           <div>
-            <Button variant="outline" onClick={handleSaveForm}>Save Draft</Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSaveForm}
+              disabled={saving}
+              className="disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Draft'}
+            </Button>
           </div>
         </div>
 

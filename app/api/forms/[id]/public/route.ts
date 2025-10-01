@@ -1,31 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { auth } from '@clerk/nextjs/server';
 
 const prisma = new PrismaClient();
 
+// GET: Public form data (no authentication required)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await auth();
-    const userId = authResult.userId;
-    
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
     const { id: formId } = await params;
 
-    // Fetch form with questions and options
-    const form = await prisma.form.findFirst({
+    // Fetch form with questions and options (PUBLIC ACCESS)
+    const form = await prisma.form.findUnique({
       where: {
-        id: formId,
-        createdBy: userId // Ensure user owns this form
+        id: formId
       },
       include: {
         questions: {
@@ -38,11 +27,12 @@ export async function GET(
 
     if (!form) {
       return NextResponse.json(
-        { success: false, error: 'Form not found or access denied' },
+        { success: false, error: 'Form not found' },
         { status: 404 }
       );
     }
 
+    // Return only public information
     return NextResponse.json({
       success: true,
       form: {
@@ -63,7 +53,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Error fetching form:', error);
+    console.error('Error fetching public form:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

@@ -6,7 +6,7 @@ const prisma = new PrismaClient();
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = await auth();
@@ -19,7 +19,7 @@ export async function PUT(
       );
     }
 
-    const formId = params.id;
+    const { id: formId } = await params;
     const body = await request.json();
     const { title, description, questions } = body;
 

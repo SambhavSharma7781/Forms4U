@@ -59,10 +59,10 @@ model Option {
 
 model Response {
   id        String     @id @map("_id") @default(auto()) @db.ObjectId
-  userId    String
+  userId    String?   
   formId    String     @db.ObjectId
   createdAt DateTime   @default(now())
-  user      User       @relation(fields: [userId], references: [id])
+  user      User?      @relation(fields: [userId], references: [id])
   form      Form       @relation(fields: [formId], references: [id])
   answers   Answer[]
 }

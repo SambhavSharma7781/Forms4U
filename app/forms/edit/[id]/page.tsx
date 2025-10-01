@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface Question {
   id: string;
@@ -177,11 +178,7 @@ export default function EditForm() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading form...</p>
-      </div>
-    );
+    return <LoadingSpinner message="Loading form..." />;
   }
 
   if (!formData) {

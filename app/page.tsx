@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 interface UserForm {
   id: string;
@@ -136,8 +137,8 @@ export default function Dashboard() {
           
           {/* Forms grid - responsive */}
           {loading ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">Loading your forms...</p>
+            <div className="py-8">
+              <LoadingSpinner message="Loading your forms..." size="md" fullScreen={false} />
             </div>
           ) : userForms.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">

@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Get user from Clerk
@@ -17,7 +17,7 @@ export async function DELETE(
       );
     }
 
-    const formId = params.id;
+    const { id: formId } = await params;
 
     // Check if form belongs to user
     const form = await prisma.form.findUnique({

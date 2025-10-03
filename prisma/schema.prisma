@@ -32,6 +32,7 @@ model Form {
   id          String     @id @map("_id") @default(auto()) @db.ObjectId
   title       String
   description String?
+  published   Boolean    @default(false)
   createdBy   String
   user        User       @relation(fields: [createdBy], references: [id])
   createdAt   DateTime   @default(now())

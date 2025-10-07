@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
         id: true,
         title: true,
         description: true,
+        published: true,
+        acceptingResponses: true,
         createdAt: true,
         questions: {
           take: 3, // Only first 3 questions for preview

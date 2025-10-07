@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@clerk/nextjs/server';
-
-const prisma = new PrismaClient();
+import prisma from '@/services/prisma';
 
 export async function PUT(
   request: NextRequest,
@@ -21,7 +19,7 @@ export async function PUT(
 
     const { id: formId } = await params;
     const body = await request.json();
-    const { title, description, questions } = body;
+    const { title, description, questions, published = false, acceptingResponses = true } = body;
 
     // Verify form ownership
     const existingForm = await prisma.form.findFirst({
@@ -40,16 +38,28 @@ export async function PUT(
 
     // Update form in transaction
     await prisma.$transaction(async (tx) => {
-      // Update form title and description
+      // Update form title, description, published status, and accepting responses
       await tx.form.update({
         where: { id: formId },
         data: {
           title,
-          description
+          description,
+          published,
+          acceptingResponses
         }
       });
 
-      // Delete existing questions and options
+      // Delete existing data in correct order (due to foreign key constraints)
+      // 1. First delete answers that reference questions
+      await tx.answer.deleteMany({
+        where: {
+          question: {
+            formId: formId
+          }
+        }
+      });
+
+      // 2. Then delete options
       await tx.option.deleteMany({
         where: {
           question: {
@@ -58,6 +68,7 @@ export async function PUT(
         }
       });
 
+      // 3. Finally delete questions
       await tx.question.deleteMany({
         where: { formId: formId }
       });

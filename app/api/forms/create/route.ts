@@ -16,10 +16,9 @@ export async function POST(request: NextRequest) {
 
     // Get data from request
     const data = await request.json();
-    const { title, description, questions } = data;
+    const { title, description, questions, published = false } = data;
     
-    // Debug log
-    console.log('Received data:', { title, description, questions });
+
 
     // Create or find user in our database
     let user = await prisma.user.findUnique({
@@ -40,40 +39,36 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create form in database
+    // Create form with questions
     const form = await prisma.form.create({
       data: {
-        title: title || "Untitled form",
-        description: description || "",
-        createdBy: userId
-      }
-    });
-
-    // Create questions for this form
-    for (const question of questions) {
-      const createdQuestion = await prisma.question.create({
-        data: {
-          text: question.question || "Untitled question",
-          type: question.type,
-          required: question.required,
-          formId: form.id
+        title,
+        description,
+        published,
+        createdBy: userId,
+        questions: {
+          create: questions.map((question: any, index: number) => ({
+            text: question.text,
+            type: question.type,
+            required: question.required || false,
+            options: question.options
+              ? {
+                  create: question.options.map((option: string, optionIndex: number) => ({
+                    text: option
+                  }))
+                }
+              : undefined
+          }))
         }
-      });
-
-      // If question has options (multiple choice, checkboxes, dropdown)
-      if (question.options && question.options.length > 0) {
-        for (const optionText of question.options) {
-          if (optionText && optionText.trim()) { // Only save non-empty options
-            await prisma.option.create({
-              data: {
-                text: optionText.trim(),
-                questionId: createdQuestion.id
-              }
-            });
+      },
+      include: {
+        questions: {
+          include: {
+            options: true
           }
         }
       }
-    }
+    });
 
     return NextResponse.json({ 
       success: true, 

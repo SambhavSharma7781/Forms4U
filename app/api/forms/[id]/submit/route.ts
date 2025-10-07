@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/services/prisma';
 
 // POST: Submit form response
 export async function POST(
@@ -13,8 +11,7 @@ export async function POST(
     const body = await request.json();
     const { responses } = body;
 
-    console.log('Submitting response for form:', formId);
-    console.log('Response data:', responses);
+
 
     // Validate that form exists
     const form = await prisma.form.findUnique({
@@ -89,7 +86,7 @@ export async function POST(
     // Execute all answer creation promises
     await Promise.all(answerPromises.filter(promise => promise !== null));
 
-    console.log('Response submitted successfully:', responseRecord.id);
+
 
     return NextResponse.json({
       success: true,

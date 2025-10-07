@@ -29,15 +29,16 @@ model User {
 }
 
 model Form {
-  id          String     @id @map("_id") @default(auto()) @db.ObjectId
-  title       String
-  description String?
-  published   Boolean    @default(false)
-  createdBy   String
-  user        User       @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime   @default(now())
-  questions   Question[]
-  responses   Response[]
+  id                String     @id @map("_id") @default(auto()) @db.ObjectId
+  title             String
+  description       String?
+  published         Boolean    @default(false)
+  acceptingResponses Boolean   @default(true)
+  createdBy         String
+  user              User       @relation(fields: [createdBy], references: [id])
+  createdAt         DateTime   @default(now())
+  questions         Question[]
+  responses         Response[]
 }
 
 model Question {

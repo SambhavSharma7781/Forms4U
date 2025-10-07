@@ -9,6 +9,7 @@ interface UserForm {
   id: string;
   title: string;
   description: string | null;
+  published: boolean;
   createdAt: string;
   questions: {
     id: string;
@@ -22,19 +23,21 @@ interface UserForm {
 }
 
 export default function Dashboard() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const [userForms, setUserForms] = useState<UserForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Fetch user's forms when component loads
   useEffect(() => {
-    if (isSignedIn) {
-      fetchUserForms();
-    } else {
-      setLoading(false);
+    if (isLoaded) {
+      if (isSignedIn) {
+        fetchUserForms();
+      } else {
+        setLoading(false);
+      }
     }
-  }, [isSignedIn]);
+  }, [isSignedIn, isLoaded]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -69,8 +72,8 @@ export default function Dashboard() {
   };
 
   const handleDuplicateForm = (formId: string) => {
-    console.log('Duplicate form:', formId);
     // TODO: Implement form duplication
+    alert('Form duplication feature coming soon!');
   };
 
   const handleMenuToggle = (formId: string) => {
@@ -78,9 +81,9 @@ export default function Dashboard() {
   };
 
   const handleRenameForm = (formId: string) => {
-    console.log('Rename form:', formId);
     setOpenMenuId(null);
     // TODO: Implement rename functionality
+    alert('Form rename feature coming soon!');
   };
 
   const handleOpenInNewTab = (formId: string) => {
@@ -136,9 +139,13 @@ export default function Dashboard() {
           <h2 className="text-lg font-medium text-gray-700 mb-6">Owned by you</h2>
           
           {/* Forms grid - responsive */}
-          {loading ? (
+          {!isLoaded || loading ? (
             <div className="py-8">
               <LoadingSpinner message="Loading your forms..." size="md" fullScreen={false} />
+            </div>
+          ) : !isSignedIn ? (
+            <div className="text-center py-12">
+              <p className="text-gray-500">Please sign in to view your forms.</p>
             </div>
           ) : userForms.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
@@ -233,15 +240,24 @@ export default function Dashboard() {
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">{form.title}</p>
-                        <p className="text-xs text-gray-500">
-                          Modified {new Date(form.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
+                        <p className="text-sm font-medium text-gray-900 truncate mb-1">{form.title}</p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-xs text-gray-500">
+                            Modified {new Date(form.createdAt).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            form.published 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-gray-100 text-gray-600'
+                          }`}>
+                            {form.published ? 'Live' : 'Draft'}
+                          </span>
+                        </div>
                       </div>
                     </div>
 

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '@/services/prisma';
 
 // GET: Public form data (no authentication required)
 export async function GET(
@@ -14,7 +12,8 @@ export async function GET(
     // Fetch form with questions and options (PUBLIC ACCESS)
     const form = await prisma.form.findUnique({
       where: {
-        id: formId
+        id: formId,
+        published: true // Only allow access to published forms
       },
       include: {
         questions: {
@@ -27,7 +26,7 @@ export async function GET(
 
     if (!form) {
       return NextResponse.json(
-        { success: false, error: 'Form not found' },
+        { success: false, error: 'Form not found or not published' },
         { status: 404 }
       );
     }
@@ -39,6 +38,7 @@ export async function GET(
         id: form.id,
         title: form.title,
         description: form.description,
+        acceptingResponses: form.acceptingResponses,
         questions: form.questions.map(question => ({
           id: question.id,
           text: question.text,

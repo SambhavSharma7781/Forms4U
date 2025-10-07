@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@clerk/nextjs/server';
-
-const prisma = new PrismaClient();
+import prisma from '@/services/prisma';
 
 export async function GET(
   request: NextRequest,
@@ -49,6 +47,8 @@ export async function GET(
         id: form.id,
         title: form.title,
         description: form.description,
+        published: form.published,
+        acceptingResponses: form.acceptingResponses,
         questions: form.questions.map(question => ({
           id: question.id,
           text: question.text,

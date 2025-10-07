@@ -2,8 +2,9 @@
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import QuestionCard from "@/components/QuestionCard";
+import { navbarEvents } from "@/components/Navbar";
 
 interface Question {
   id: string;
@@ -25,6 +26,16 @@ export default function CreateFormPage() {
       required: false
     }
   ]);
+
+  // Listen for navbar publish button clicks
+  useEffect(() => {
+    const handleNavbarPublish = () => {
+      handleSaveForm(true); // Save and publish
+    };
+
+    navbarEvents.subscribe('publishForm', handleNavbarPublish);
+    return () => navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
+  }, []);
 
   const handleAddQuestion = () => {
     const newQuestion: Question = {
@@ -71,7 +82,7 @@ export default function CreateFormPage() {
     ));
   };
 
-  const handleSaveForm = async () => {
+  const handleSaveForm = async (published = false) => {
     if (!formTitle.trim()) {
       alert('Please add a form title');
       return;
@@ -82,7 +93,8 @@ export default function CreateFormPage() {
       const formData = {
         title: formTitle,
         description: formDescription,
-        questions: questions
+        questions: questions,
+        published: published
       };
 
       const response = await fetch('/api/forms/create', {
@@ -178,7 +190,7 @@ export default function CreateFormPage() {
           <div>
             <Button 
               variant="outline" 
-              onClick={handleSaveForm}
+              onClick={() => handleSaveForm(false)}
               disabled={saving}
               className="disabled:opacity-50"
             >

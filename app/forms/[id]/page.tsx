@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import Link from 'next/link';
-import { ToggleLeft, ToggleRight } from "lucide-react";
+
 import LoadingSpinner from '@/components/LoadingSpinner';
 import QuestionCard from '@/components/QuestionCard';
+import { navbarEvents } from '@/components/Navbar';
 
 interface Question {
   id: string;
@@ -20,6 +21,8 @@ interface FormData {
   id: string;
   title: string;
   description: string;
+  published: boolean;
+  acceptingResponses: boolean;
   questions: Question[];
 }
 
@@ -54,10 +57,14 @@ export default function Form() {
     id: '',
     title: 'Untitled form',
     description: '',
+    published: false,
+    acceptingResponses: true,
     questions: []
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   
   // Tab system states - Google Forms style
   const [activeTab, setActiveTab] = useState<'questions' | 'responses'>('questions');
@@ -81,6 +88,85 @@ export default function Form() {
     }
   }, [isSignedIn, formId]);
 
+  // Listen for navbar publish button clicks
+  useEffect(() => {
+    const handleNavbarPublish = () => {
+      if (isExistingForm) {
+        // For existing forms, can only publish if not already published
+        if (!formData.published) {
+          togglePublishStatus();
+        }
+      } else {
+        // For new forms, save and publish
+        saveForm(true);
+      }
+    };
+
+    const handleToggleResponses = () => {
+      toggleResponseAcceptance();
+    };
+
+    navbarEvents.subscribe('publishForm', handleNavbarPublish);
+    navbarEvents.subscribe('toggleResponses', handleToggleResponses);
+    
+    return () => {
+      navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
+      navbarEvents.unsubscribe('toggleResponses', handleToggleResponses);
+    };
+  }, [isExistingForm, formData.published]);
+
+  // Update navbar whenever formData changes - with proper timing
+  useEffect(() => {
+    // Only update navbar after form data is fully loaded and published status is defined
+    if (formData.id && isExistingForm && !loading && formData.published !== undefined) {
+      console.log('Form page sending status update:', JSON.stringify({
+        published: formData.published,
+        acceptingResponses: formData.acceptingResponses,
+        formId: formData.id,
+        title: formData.title,
+        loading: loading,
+        isExistingForm: isExistingForm
+      }));
+      navbarEvents.emit('formStatusUpdate', {
+        published: formData.published,
+        acceptingResponses: formData.acceptingResponses,
+        formId: formData.id,
+        title: formData.title
+      });
+    } else {
+      console.log('Form page NOT sending status update because:', JSON.stringify({
+        hasId: !!formData.id,
+        isExistingForm: isExistingForm,
+        loading: loading,
+        published: formData.published,
+        publishedUndefined: formData.published === undefined
+      }));
+    }
+  }, [formData.published, formData.acceptingResponses, formData.id, formData.title, isExistingForm, loading]);
+
+  // Auto-save functionality - trigger when form data changes
+  useEffect(() => {
+    if (!loading && isExistingForm && formData.title.trim()) {  
+      const autoSaveTimer = setTimeout(() => {
+        autoSave();
+      }, 2000); // Auto-save after 2 seconds of no changes
+
+      return () => clearTimeout(autoSaveTimer);
+    }
+  }, [formData.title, formData.description, formData.questions, isExistingForm, loading]);
+
+  // Cleanup navbar when component unmounts
+  useEffect(() => {
+    return () => {
+      navbarEvents.emit('formStatusUpdate', {
+        published: false,
+        acceptingResponses: true,
+        formId: '',
+        title: ''
+      });
+    };
+  }, []);
+
   const fetchFormData = async () => {
     try {
       const response = await fetch(`/api/forms/${formId}`);
@@ -88,6 +174,12 @@ export default function Form() {
       
       if (data.success) {
         setFormData(data.form);
+        // Update navbar with form status
+        navbarEvents.emit('formStatusUpdate', {
+          published: data.form.published,
+          formId: data.form.id,
+          title: data.form.title
+        });
       } else {
         alert('Form not found or access denied');
         router.push('/');
@@ -200,7 +292,7 @@ export default function Form() {
     setFormData({ ...formData, questions: updatedQuestions });
   };
 
-  const saveForm = async () => {
+  const saveForm = async (published: boolean = false) => {
     if (!formData.title.trim()) {
       alert('Please add a form title');
       return;
@@ -208,6 +300,9 @@ export default function Form() {
 
     setSaving(true);
     try {
+      // Create payload with published status
+      const payload = { ...formData, published };
+      
       const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
       
@@ -216,13 +311,25 @@ export default function Form() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
       
       if (data.success) {
-        alert('Form saved successfully!');
+        // Update local state
+        setFormData(prev => ({ ...prev, published }));
+        
+        // Update navbar with new status
+        navbarEvents.emit('formStatusUpdate', {
+          published: published,
+          formId: formData.id || data.form?.id,
+          title: formData.title
+        });
+        
+        const message = published ? 'Form published successfully!' : 'Form saved as draft!';
+        alert(message);
+        
         if (!isExistingForm) {
           router.push('/');
         }
@@ -232,6 +339,133 @@ export default function Form() {
     } catch (error) {
       console.error('Error saving form:', error);
       alert('Error saving form');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const autoSave = async () => {
+    if (!isExistingForm || !formData.title.trim()) {
+      return; // Don't auto-save new forms or forms without title
+    }
+
+    setAutoSaving(true);
+    try {
+      const payload = { ...formData };
+      
+      const response = await fetch(`/api/forms/update/${formId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        setLastSaved(new Date());
+        console.log('Auto-save successful');
+      } else {
+        console.error('Auto-save failed:', data.error || 'Unknown error');
+        // Don't show alert for auto-save failures to avoid interrupting user
+      }
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+      // Don't show alert for auto-save failures to avoid interrupting user
+    } finally {
+      setAutoSaving(false);
+    }
+  };
+
+  const togglePublishStatus = async () => {
+    if (!isExistingForm) {
+      alert('Please save the form first');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const newPublishedStatus = !formData.published;
+      console.log('togglePublishStatus - Changing from:', formData.published, 'to:', newPublishedStatus);
+      
+      const response = await fetch(`/api/forms/${formId}/publish`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ published: newPublishedStatus }),
+      });
+
+      const data = await response.json();
+      console.log('togglePublishStatus - API response:', data);
+      
+      if (response.ok) {
+        console.log('togglePublishStatus - Updating form data to published:', newPublishedStatus);
+        setFormData(prev => ({ ...prev, published: newPublishedStatus }));
+        // Update navbar with new status
+        navbarEvents.emit('formStatusUpdate', {
+          published: newPublishedStatus,
+          acceptingResponses: formData.acceptingResponses,
+          formId: formData.id || formId, // Use formId from URL if formData.id is empty
+          title: formData.title
+        });
+        const message = newPublishedStatus ? 'Form published!' : 'Form unpublished (draft)';
+        console.log('togglePublishStatus - Alert message:', message, 'newPublishedStatus:', newPublishedStatus);
+        alert(message);
+      } else {
+        console.error('togglePublishStatus - API error:', data);
+        alert('Error updating publish status: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error toggling publish status:', error);
+      alert('Error updating publish status');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleResponseAcceptance = async () => {
+    if (!formData.published) {
+      alert('Form must be published first');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const newAcceptingStatus = !formData.acceptingResponses;
+      console.log('toggleResponseAcceptance - Changing from:', formData.acceptingResponses, 'to:', newAcceptingStatus);
+      
+      const response = await fetch(`/api/forms/${formId}/toggle-responses`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ acceptingResponses: newAcceptingStatus }),
+      });
+
+      const data = await response.json();
+      console.log('toggleResponseAcceptance - API response:', data);
+      
+      if (response.ok) {
+        console.log('toggleResponseAcceptance - Updating form data to acceptingResponses:', newAcceptingStatus);
+        setFormData(prev => ({ ...prev, acceptingResponses: newAcceptingStatus }));
+        // Update navbar with new status
+        navbarEvents.emit('formStatusUpdate', {
+          published: formData.published,
+          acceptingResponses: newAcceptingStatus,
+          formId: formData.id || formId,
+          title: formData.title
+        });
+        const message = newAcceptingStatus ? 'Now accepting responses!' : 'Stopped accepting responses';
+        alert(message);
+      } else {
+        console.error('toggleResponseAcceptance - API error:', data);
+        alert('Error updating response status: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error toggling response acceptance:', error);
+      alert('Error updating response status');
     } finally {
       setSaving(false);
     }
@@ -305,6 +539,59 @@ export default function Form() {
         {/* Tab Content */}
         {activeTab === 'questions' && (
           <>
+            {/* Form Status Indicator */}
+            {isExistingForm && (
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                    formData.published 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full mr-2 ${
+                      formData.published ? 'bg-green-400' : 'bg-gray-400'
+                    }`}></div>
+                    {formData.published ? 'Published' : 'Draft'}
+                  </div>
+                  {formData.published && (
+                    <div className="text-sm text-gray-600">
+                      Public link: 
+                      <span className="ml-1 text-blue-600 font-mono">
+                        {typeof window !== 'undefined' ? `${window.location.origin}/forms/${formId}/view` : ''}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Auto-save Status in Header */}
+                <div className="flex items-center space-x-2 text-sm">
+                  {autoSaving ? (
+                    <>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                      <span className="text-blue-600 font-medium">Saving...</span>
+                    </>
+                  ) : lastSaved ? (
+                    <>
+                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-green-600">
+                        Saved {new Date(lastSaved).toLocaleTimeString([], { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        })}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                      <span className="text-gray-500">Auto-save enabled</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Form Header Card */}
             <div className="bg-white rounded-lg border border-gray-200 mb-6">
               <div className="h-3 bg-blue-600 rounded-t-lg"></div>
@@ -359,26 +646,24 @@ export default function Form() {
               ))}
 
               {/* Add Question Button */}
-              <button
-                onClick={addQuestion}
-                className="w-full bg-white border border-dashed border-gray-300 rounded-lg p-8 text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-colors mb-6"
-              >
-                + Add Question
-              </button>
+              <div className="mb-6">
+                <button 
+                  onClick={addQuestion}
+                  className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Add Question</span>
+                </button>
+              </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-between">
+            {/* Navigation */}
+            <div className="flex justify-start">
               <Link href="/" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                 ← Back to Home
               </Link>
-              <button
-                onClick={saveForm}
-                disabled={saving}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save Draft'}
-              </button>
             </div>
           </>
         )}
@@ -393,9 +678,34 @@ export default function Form() {
                   <h2 className="text-lg font-medium text-gray-900">Form Responses</h2>
                   <p className="text-gray-600 mt-1">Submitted responses for "{formData.title}"</p>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{responseCount}</div>
-                  <div className="text-sm text-gray-500">Response{responseCount === 1 ? '' : 's'}</div>
+                <div className="flex items-center space-x-6">
+                  {formData.published && (
+                    <div className="flex items-center space-x-3">
+                      <span className="text-sm text-gray-600">Accepting responses:</span>
+                      <button
+                        onClick={toggleResponseAcceptance}
+                        disabled={saving}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formData.acceptingResponses ? 'bg-green-600' : 'bg-gray-300'
+                        } ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formData.acceptingResponses ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                      <span className={`text-sm font-medium ${
+                        formData.acceptingResponses ? 'text-green-600' : 'text-gray-500'
+                      }`}>
+                        {formData.acceptingResponses ? 'On' : 'Off'}
+                      </span>
+                    </div>
+                  )}
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{responseCount}</div>
+                    <div className="text-sm text-gray-500">Response{responseCount === 1 ? '' : 's'}</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -409,16 +719,17 @@ export default function Form() {
                   <p className="text-gray-600 mb-6">Share your form to start collecting responses from users.</p>
                   <div className="space-y-3">
                     <div className="text-sm text-gray-500">Share your form:</div>
-                    <div className="bg-gray-50 p-3 rounded-md text-sm font-mono text-gray-800 border">
+                    <div className="bg-gray-50 p-3 rounded-md text-sm font-mono text-gray-800 border break-all">
                       {typeof window !== 'undefined' ? `${window.location.origin}/forms/${formId}/view` : ''}
                     </div>
                     <button 
                       onClick={() => {
                         if (typeof window !== 'undefined') {
                           navigator.clipboard.writeText(`${window.location.origin}/forms/${formId}/view`);
+                          alert('Link copied to clipboard!');
                         }
                       }}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
                       📋 Copy Link
                     </button>

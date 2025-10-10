@@ -49,7 +49,7 @@ interface ResponseData {
 export default function Form() {
   const params = useParams();
   const router = useRouter();
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, isLoaded } = useAuth();
   const formId = params.id as string;
 
   // Form editing states
@@ -63,8 +63,6 @@ export default function Form() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [autoSaving, setAutoSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   
   // Tab system states - Google Forms style
   const [activeTab, setActiveTab] = useState<'questions' | 'responses'>('questions');
@@ -77,16 +75,41 @@ export default function Form() {
 
   // Fetch existing form data if editing
   useEffect(() => {
-    if (isSignedIn) {
-      if (isExistingForm) {
-        fetchFormData();
-        fetchResponseCount();
+    if (isLoaded) {
+      if (isSignedIn) {
+        if (isExistingForm) {
+          fetchFormData();
+          fetchResponseCount();
+        } else {
+          // New form - start fresh
+          setLoading(false);
+        }
       } else {
-        // New form - start fresh
         setLoading(false);
       }
     }
-  }, [isSignedIn, formId]);
+  }, [isSignedIn, isLoaded, formId]);
+
+  // Auto-refresh responses when on responses tab
+  useEffect(() => {
+    let refreshInterval: NodeJS.Timeout;
+    
+    if (activeTab === 'responses' && isExistingForm && formData.published) {
+      // Refresh responses every 10 seconds when on responses tab
+      refreshInterval = setInterval(() => {
+        fetchResponses();
+        fetchResponseCount();
+      }, 10000); // 10 seconds
+    }
+    
+    return () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+    };
+  }, [activeTab, isExistingForm, formData.published]);
+
+
 
   // Listen for navbar publish button clicks
   useEffect(() => {
@@ -102,15 +125,24 @@ export default function Form() {
       }
     };
 
+    const handleNavbarUnpublish = () => {
+      if (isExistingForm && formData.published) {
+        // Unpublish the form
+        togglePublishStatus();
+      }
+    };
+
     const handleToggleResponses = () => {
       toggleResponseAcceptance();
     };
 
     navbarEvents.subscribe('publishForm', handleNavbarPublish);
+    navbarEvents.subscribe('unpublishForm', handleNavbarUnpublish);
     navbarEvents.subscribe('toggleResponses', handleToggleResponses);
     
     return () => {
       navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
+      navbarEvents.unsubscribe('unpublishForm', handleNavbarUnpublish);
       navbarEvents.unsubscribe('toggleResponses', handleToggleResponses);
     };
   }, [isExistingForm, formData.published]);
@@ -144,16 +176,7 @@ export default function Form() {
     }
   }, [formData.published, formData.acceptingResponses, formData.id, formData.title, isExistingForm, loading]);
 
-  // Auto-save functionality - trigger when form data changes
-  useEffect(() => {
-    if (!loading && isExistingForm && formData.title.trim()) {  
-      const autoSaveTimer = setTimeout(() => {
-        autoSave();
-      }, 2000); // Auto-save after 2 seconds of no changes
 
-      return () => clearTimeout(autoSaveTimer);
-    }
-  }, [formData.title, formData.description, formData.questions, isExistingForm, loading]);
 
   // Cleanup navbar when component unmounts
   useEffect(() => {
@@ -292,7 +315,7 @@ export default function Form() {
     setFormData({ ...formData, questions: updatedQuestions });
   };
 
-  const saveForm = async (published: boolean = false) => {
+  const saveForm = async (forcePublished?: boolean) => {
     if (!formData.title.trim()) {
       alert('Please add a form title');
       return;
@@ -300,8 +323,14 @@ export default function Form() {
 
     setSaving(true);
     try {
-      // Create payload with published status
-      const payload = { ...formData, published };
+      // For existing forms, preserve current published status unless explicitly specified
+      // For new forms, use the forcePublished parameter or default to false
+      const publishedStatus = isExistingForm 
+        ? (forcePublished !== undefined ? forcePublished : formData.published)
+        : (forcePublished !== undefined ? forcePublished : false);
+      
+      // Create payload with correct published status
+      const payload = { ...formData, published: publishedStatus };
       
       const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
@@ -318,16 +347,30 @@ export default function Form() {
       
       if (data.success) {
         // Update local state
-        setFormData(prev => ({ ...prev, published }));
+        setFormData(prev => ({ ...prev, published: publishedStatus }));
         
         // Update navbar with new status
         navbarEvents.emit('formStatusUpdate', {
-          published: published,
+          published: publishedStatus,
           formId: formData.id || data.form?.id,
           title: formData.title
         });
         
-        const message = published ? 'Form published successfully!' : 'Form saved as draft!';
+        // Show appropriate message based on what happened
+        let message;
+        if (isExistingForm) {
+          if (formData.published && publishedStatus) {
+            message = 'Changes saved!';
+          } else if (!formData.published && publishedStatus) {
+            message = 'Form published successfully!';
+          } else if (formData.published && !publishedStatus) {
+            message = 'Form unpublished and saved as draft!';
+          } else {
+            message = 'Form saved as draft!';
+          }
+        } else {
+          message = publishedStatus ? 'Form published successfully!' : 'Form saved as draft!';
+        }
         alert(message);
         
         if (!isExistingForm) {
@@ -344,39 +387,7 @@ export default function Form() {
     }
   };
 
-  const autoSave = async () => {
-    if (!isExistingForm || !formData.title.trim()) {
-      return; // Don't auto-save new forms or forms without title
-    }
 
-    setAutoSaving(true);
-    try {
-      const payload = { ...formData };
-      
-      const response = await fetch(`/api/forms/update/${formId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        setLastSaved(new Date());
-        console.log('Auto-save successful');
-      } else {
-        console.error('Auto-save failed:', data.error || 'Unknown error');
-        // Don't show alert for auto-save failures to avoid interrupting user
-      }
-    } catch (error) {
-      console.error('Auto-save failed:', error);
-      // Don't show alert for auto-save failures to avoid interrupting user
-    } finally {
-      setAutoSaving(false);
-    }
-  };
 
   const togglePublishStatus = async () => {
     if (!isExistingForm) {
@@ -474,8 +485,10 @@ export default function Form() {
   // Response functions
   const handleTabChange = (tab: 'questions' | 'responses') => {
     setActiveTab(tab);
-    if (tab === 'responses' && !responseData) {
+    if (tab === 'responses') {
+      // Always fetch latest responses when switching to responses tab
       fetchResponses();
+      fetchResponseCount(); // Also update the response count
     }
   };
 
@@ -491,19 +504,26 @@ export default function Form() {
     if (answer.selectedOptions && answer.selectedOptions.length > 0) {
       return answer.selectedOptions.join(', ');
     }
-    return answer.answerText || 'No answer';
+    
+    if (answer.answerText && answer.answerText.trim() !== '') {
+      return answer.answerText;
+    }
+    
+    return 'No answer provided';
   };
 
+  // Show loading while auth is checking
+  if (!isLoaded || loading) {
+    return <LoadingSpinner message="Loading form..." />;
+  }
+
+  // Show sign in message only after auth is fully loaded
   if (!isSignedIn) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p>Please sign in to edit forms.</p>
       </div>
     );
-  }
-
-  if (loading) {
-    return <LoadingSpinner message="Loading form..." />;
   }
 
   return (
@@ -562,33 +582,7 @@ export default function Form() {
                     </div>
                   )}
                 </div>
-                
-                {/* Auto-save Status in Header */}
-                <div className="flex items-center space-x-2 text-sm">
-                  {autoSaving ? (
-                    <>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span className="text-blue-600 font-medium">Saving...</span>
-                    </>
-                  ) : lastSaved ? (
-                    <>
-                      <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-green-600">
-                        Saved {new Date(lastSaved).toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                      <span className="text-gray-500">Auto-save enabled</span>
-                    </>
-                  )}
-                </div>
+
               </div>
             )}
 
@@ -622,6 +616,7 @@ export default function Form() {
                   initialQuestion={question.text}
                   initialType={question.type}
                   initialRequired={question.required}
+                  initialOptions={question.options?.map((opt: any) => opt.text) || []}
                   onDelete={() => deleteQuestion(question.id)}
                   onDuplicate={() => duplicateQuestion(question.id)}
                   onUpdate={(data) => {
@@ -659,11 +654,20 @@ export default function Form() {
               </div>
             </div>
 
-            {/* Navigation */}
-            <div className="flex justify-start">
+            {/* Actions */}
+            <div className="flex justify-between items-center">
               <Link href="/" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                 ← Back to Home
               </Link>
+              
+              {/* Save Button */}
+              <button
+                onClick={() => saveForm()} // No parameter - will preserve current published status
+                disabled={saving}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving...' : formData.published ? 'Save Changes' : 'Save Draft'}
+              </button>
             </div>
           </>
         )}

@@ -85,7 +85,7 @@ export async function PUT(
         });
 
         // Create options if question type requires them
-        if ((question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES') && question.options.length > 0) {
+        if ((question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES' || question.type === 'DROPDOWN') && question.options.length > 0) {
           await tx.option.createMany({
             data: question.options.map((option: any) => ({
               text: option.text,

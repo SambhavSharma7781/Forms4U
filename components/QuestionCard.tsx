@@ -18,6 +18,7 @@ interface QuestionCardProps {
   initialQuestion?: string;
   initialType?: QuestionType;
   initialRequired?: boolean;
+  initialOptions?: string[];
   onDelete?: () => void;
   onDuplicate?: () => void;
   onUpdate?: (data: {
@@ -34,6 +35,7 @@ export default function QuestionCard({
   initialQuestion = "",
   initialType = "SHORT_ANSWER",
   initialRequired = false,
+  initialOptions = [],
   onDelete,
   onDuplicate,
   onUpdate
@@ -42,11 +44,17 @@ export default function QuestionCard({
   const [questionType, setQuestionType] = useState<QuestionType>(initialType);
   const [required, setRequired] = useState(initialRequired);
   const [isEditing, setIsEditing] = useState(!initialQuestion);
-  const [options, setOptions] = useState<string[]>(
-    questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN" 
-      ? ["Option 1", ""] 
-      : []
-  );
+  const [options, setOptions] = useState<string[]>(() => {
+    // If initialOptions are provided, use them
+    if (initialOptions.length > 0) {
+      return initialOptions;
+    }
+    // Otherwise, create default options for types that need them
+    if (questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") {
+      return ["Option 1", ""];
+    }
+    return [];
+  });
 
   // Notify parent whenever data changes
   const notifyParent = () => {
@@ -66,6 +74,19 @@ export default function QuestionCard({
     notifyParent();
   }, [question, questionType, required, options]);
 
+  // Handle options when question type changes
+  useEffect(() => {
+    if (questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") {
+      if (options.length === 0) {
+        setOptions(["Option 1", ""]);
+      }
+    } else {
+      if (options.length > 0) {
+        setOptions([]);
+      }
+    }
+  }, [questionType]);
+
   const questionTypes = [
     { value: "SHORT_ANSWER", label: "Short answer" },
     { value: "PARAGRAPH", label: "Paragraph" },
@@ -76,18 +97,7 @@ export default function QuestionCard({
 
   const handleTypeChange = (newType: QuestionType) => {
     setQuestionType(newType);
-    
-    // Update options based on question type
-    if (newType === "MULTIPLE_CHOICE" || newType === "CHECKBOXES" || newType === "DROPDOWN") {
-      if (options.length === 0) {
-        setOptions(["Option 1", ""]);
-      }
-    } else {
-      setOptions([]);
-    }
-    
-    // Notify parent after state update
-    setTimeout(notifyParent, 0);
+    // Options will be handled by the useEffect above
   };
 
   const addOption = () => {

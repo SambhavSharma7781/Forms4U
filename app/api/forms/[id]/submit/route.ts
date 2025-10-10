@@ -11,6 +11,9 @@ export async function POST(
     const body = await request.json();
     const { responses } = body;
 
+    console.log('Form submission for:', formId);
+    console.log('Received responses:', responses);
+
 
 
     // Validate that form exists
@@ -54,11 +57,18 @@ export async function POST(
       }
     });
 
+    console.log('Created response record:', responseRecord.id);
+
     // Create answer records for each question response
     const answerPromises = Object.entries(responses).map(async ([questionId, answerData]) => {
+      console.log(`Processing answer for question ${questionId}:`, answerData);
+      
       // Find the question to determine its type
       const question = form.questions.find(q => q.id === questionId);
-      if (!question) return null;
+      if (!question) {
+        console.log(`Question ${questionId} not found!`);
+        return null;
+      }
 
       let answerText = null;
       let selectedOptions: string[] = [];
@@ -67,13 +77,15 @@ export async function POST(
       if (typeof answerData === 'string') {
         // Single text answer or single choice
         answerText = answerData;
+        console.log(`String answer: "${answerText}"`);
       } else if (Array.isArray(answerData)) {
         // Multiple choice (checkboxes)
         selectedOptions = answerData;
         answerText = answerData.join(', '); // Store as comma-separated text too
+        console.log(`Array answer: [${selectedOptions.join(', ')}]`);
       }
 
-      return prisma.answer.create({
+      const answerRecord = await prisma.answer.create({
         data: {
           responseId: responseRecord.id,
           questionId: questionId,
@@ -81,12 +93,15 @@ export async function POST(
           selectedOptions: selectedOptions
         }
       });
+
+      console.log('Created answer record:', answerRecord);
+      return answerRecord;
     });
 
     // Execute all answer creation promises
-    await Promise.all(answerPromises.filter(promise => promise !== null));
-
-
+    const createdAnswers = await Promise.all(answerPromises.filter(promise => promise !== null));
+    
+    console.log('All answers created:', createdAnswers.length, 'answers');
 
     return NextResponse.json({
       success: true,

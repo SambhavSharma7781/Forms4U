@@ -88,6 +88,23 @@ export default function PublicFormView() {
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
     
+    // Check if user has provided any responses at all
+    const hasAnyResponses = Object.keys(responses).length > 0 && 
+                           Object.values(responses).some(response => {
+                             if (typeof response === 'string') {
+                               return response.trim() !== '';
+                             } else if (Array.isArray(response)) {
+                               return response.length > 0;
+                             }
+                             return false;
+                           });
+
+    if (!hasAnyResponses) {
+      alert('Please provide at least one response before submitting the form.');
+      return false;
+    }
+    
+    // Check required fields
     formData?.questions.forEach(question => {
       if (question.required) {
         const response = responses[question.id];
@@ -140,6 +157,22 @@ export default function PublicFormView() {
 
   // Handle clear form
   const handleClearForm = () => {
+    // Check if there are any responses to clear
+    const hasResponses = Object.keys(responses).length > 0 && 
+                        Object.values(responses).some(response => {
+                          if (typeof response === 'string') {
+                            return response.trim() !== '';
+                          } else if (Array.isArray(response)) {
+                            return response.length > 0;
+                          }
+                          return false;
+                        });
+
+    if (!hasResponses) {
+      alert('Please fill the form first before clearing the form.');
+      return;
+    }
+
     if (confirm('Are you sure you want to clear all responses?')) {
       setResponses({});
       setErrors({});

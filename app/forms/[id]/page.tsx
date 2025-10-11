@@ -70,6 +70,9 @@ export default function Form() {
   const [responseCount, setResponseCount] = useState(0);
   const [expandedResponse, setExpandedResponse] = useState<string | null>(null);
 
+  // Track original form data to detect changes
+  const [originalFormData, setOriginalFormData] = useState<FormData | null>(null);
+
   // Check if this is an existing form or new form
   const isExistingForm = formId !== 'create';
 
@@ -197,6 +200,7 @@ export default function Form() {
       
       if (data.success) {
         setFormData(data.form);
+        setOriginalFormData(data.form); // Store original data for comparison
         // Update navbar with form status
         navbarEvents.emit('formStatusUpdate', {
           published: data.form.published,
@@ -242,6 +246,53 @@ export default function Form() {
     } catch (error) {
       console.error('Error fetching responses:', error);
     }
+  };
+
+  // Check if form has unsaved changes
+  const hasUnsavedChanges = () => {
+    if (!originalFormData) return false;
+    
+    // Compare title and description
+    if (formData.title !== originalFormData.title || 
+        formData.description !== originalFormData.description) {
+      return true;
+    }
+    
+    // Compare questions count
+    if (formData.questions.length !== originalFormData.questions.length) {
+      return true;
+    }
+    
+    // Compare each question
+    for (let i = 0; i < formData.questions.length; i++) {
+      const currentQ = formData.questions[i];
+      const originalQ = originalFormData.questions[i];
+      
+      if (!originalQ) return true; // New question
+      
+      if (currentQ.text !== originalQ.text ||
+          currentQ.type !== originalQ.type ||
+          currentQ.required !== originalQ.required) {
+        return true;
+      }
+      
+      // Compare options for questions that have them
+      if (currentQ.options && originalQ.options) {
+        if (currentQ.options.length !== originalQ.options.length) {
+          return true;
+        }
+        
+        for (let j = 0; j < currentQ.options.length; j++) {
+          if (currentQ.options[j].text !== originalQ.options[j].text) {
+            return true;
+          }
+        }
+      } else if (currentQ.options?.length !== originalQ.options?.length) {
+        return true;
+      }
+    }
+    
+    return false;
   };
 
   // Form editing functions
@@ -347,7 +398,9 @@ export default function Form() {
       
       if (data.success) {
         // Update local state
-        setFormData(prev => ({ ...prev, published: publishedStatus }));
+        const updatedFormData = { ...formData, published: publishedStatus };
+        setFormData(updatedFormData);
+        setOriginalFormData(updatedFormData); // Update original data to reflect saved state
         
         // Update navbar with new status
         navbarEvents.emit('formStatusUpdate', {
@@ -663,10 +716,19 @@ export default function Form() {
               {/* Save Button */}
               <button
                 onClick={() => saveForm()} // No parameter - will preserve current published status
-                disabled={saving}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={saving || (!hasUnsavedChanges() && isExistingForm)}
+                className={`inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+                  hasUnsavedChanges() || !isExistingForm
+                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700' 
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
               >
-                {saving ? 'Saving...' : formData.published ? 'Save Changes' : 'Save Draft'}
+                {saving 
+                  ? 'Saving...' 
+                  : hasUnsavedChanges() || !isExistingForm
+                    ? (formData.published ? 'Save Changes' : 'Save Draft')
+                    : 'No Changes'
+                }
               </button>
             </div>
           </>

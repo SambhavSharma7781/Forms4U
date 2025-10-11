@@ -48,7 +48,7 @@ export async function GET(
         }
       },
       orderBy: {
-        createdAt: 'desc' // Latest responses first
+        createdAt: 'asc' // Oldest responses first (Response #1, #2, #3...)
       }
     });
 

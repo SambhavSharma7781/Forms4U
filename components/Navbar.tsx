@@ -10,16 +10,17 @@ import { useAuth, UserButton, SignInButton } from "@clerk/nextjs";
 const navbarEvents = {
   publishForm: [] as (() => void)[],
   unpublishForm: [] as (() => void)[],
+  previewForm: [] as (() => void)[],
   toggleResponses: [] as (() => void)[],
   formStatusUpdate: [] as ((status: { published: boolean; acceptingResponses: boolean; formId: string }) => void)[],
-  subscribe: (event: 'publishForm' | 'unpublishForm' | 'toggleResponses' | 'formStatusUpdate', callback: any) => {
+  subscribe: (event: 'publishForm' | 'unpublishForm' | 'previewForm' | 'toggleResponses' | 'formStatusUpdate', callback: any) => {
     navbarEvents[event].push(callback);
   },
-  unsubscribe: (event: 'publishForm' | 'unpublishForm' | 'toggleResponses' | 'formStatusUpdate', callback: any) => {
+  unsubscribe: (event: 'publishForm' | 'unpublishForm' | 'previewForm' | 'toggleResponses' | 'formStatusUpdate', callback: any) => {
     const index = navbarEvents[event].indexOf(callback);
     if (index > -1) navbarEvents[event].splice(index, 1);
   },
-  emit: (event: 'publishForm' | 'unpublishForm' | 'toggleResponses' | 'formStatusUpdate', data?: any) => {
+  emit: (event: 'publishForm' | 'unpublishForm' | 'previewForm' | 'toggleResponses' | 'formStatusUpdate', data?: any) => {
     navbarEvents[event].forEach(callback => callback(data));
   }
 };
@@ -75,17 +76,30 @@ export default function Navbar() {
   const getPublishButton = () => {
     if (isCreatePage) {
       return (
-        <Button 
-          onClick={() => navbarEvents.emit('publishForm')}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-sm rounded-md font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-1.5"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          Publish
-        </Button>
+        <div className="flex items-center space-x-3">
+          <Button 
+            onClick={() => navbarEvents.emit('previewForm')}
+            variant="outline"
+            className="px-4 py-1.5 text-sm border-gray-300 text-gray-600 hover:bg-gray-50 flex items-center gap-1.5"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Preview
+          </Button>
+          <Button 
+            onClick={() => navbarEvents.emit('publishForm')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-sm rounded-md font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-1.5"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Publish
+          </Button>
+        </div>
       );
     }
     
@@ -96,6 +110,19 @@ export default function Navbar() {
       if (formStatus.published === true) {
         return (
           <div className="flex items-center space-x-3">
+            <button 
+              onClick={() => {
+                const url = `${window.location.origin}/forms/${formStatus.formId}/view?preview=true`;
+                window.open(url, '_blank');
+              }}
+              className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-1.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Preview
+            </button>
             <button 
               onClick={() => navbarEvents.emit('unpublishForm')}
               className="px-3 py-1.5 text-xs bg-red-50 text-red-700 rounded-md font-medium border border-red-200 hover:bg-red-100 transition-all duration-200 flex items-center gap-1.5"
@@ -125,17 +152,32 @@ export default function Navbar() {
         );
       } else if (formStatus.published === false) {
         return (
-          <button 
-            onClick={() => navbarEvents.emit('publishForm')}
-            className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-1.5"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Publish
-          </button>
+          <div className="flex items-center space-x-3">
+            <button 
+              onClick={() => {
+                const url = `${window.location.origin}/forms/${formStatus.formId}/view?preview=true`;
+                window.open(url, '_blank');
+              }}
+              className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-1.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Preview
+            </button>
+            <button 
+              onClick={() => navbarEvents.emit('publishForm')}
+              className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-1.5"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              Publish
+            </button>
+          </div>
         );
       } else {
         // Loading state when published status is undefined

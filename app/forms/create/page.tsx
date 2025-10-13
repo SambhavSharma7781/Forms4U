@@ -27,14 +27,23 @@ export default function CreateFormPage() {
     }
   ]);
 
-  // Listen for navbar publish button clicks
+  // Listen for navbar button clicks
   useEffect(() => {
     const handleNavbarPublish = () => {
       handleSaveForm(true); // Save and publish
     };
 
+    const handleNavbarPreview = () => {
+      handlePreviewForm(); // Show preview
+    };
+
     navbarEvents.subscribe('publishForm', handleNavbarPublish);
-    return () => navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
+    navbarEvents.subscribe('previewForm', handleNavbarPreview);
+    
+    return () => {
+      navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
+      navbarEvents.unsubscribe('previewForm', handleNavbarPreview);
+    };
   }, []);
 
   const handleAddQuestion = () => {
@@ -80,6 +89,27 @@ export default function CreateFormPage() {
         ? { ...q, ...updatedData }
         : q
     ));
+  };
+
+  const handlePreviewForm = () => {
+    // Create a temporary form preview with current data
+    const previewData = {
+      title: formTitle,
+      description: formDescription,
+      questions: questions.map(q => ({
+        id: q.id,
+        text: q.question,
+        type: q.type,
+        required: q.required,
+        options: q.options || []
+      }))
+    };
+    
+    // Store in sessionStorage for preview
+    sessionStorage.setItem('previewFormData', JSON.stringify(previewData));
+    
+    // Open preview in new tab
+    window.open('/forms/preview', '_blank');
   };
 
   const handleSaveForm = async (published = false) => {

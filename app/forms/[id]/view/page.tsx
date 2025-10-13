@@ -44,14 +44,24 @@ export default function PublicFormView() {
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [notFound, setNotFound] = useState(false);
 
+  // Check if this is preview mode
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+
   // Fetch form data on component mount
   useEffect(() => {
-    fetchFormData();
+    // Check URL for preview parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const isPreview = urlParams.get('preview') === 'true';
+    setIsPreviewMode(isPreview);
+    
+    fetchFormData(isPreview);
   }, [formId]);
 
-  const fetchFormData = async () => {
+  const fetchFormData = async (isPreview = false) => {
     try {
-      const response = await fetch(`/api/forms/${formId}/public`);
+      // For preview mode, use the form API that shows even unpublished forms (owner access)
+      const apiUrl = isPreview ? `/api/forms/${formId}` : `/api/forms/${formId}/public`;
+      const response = await fetch(apiUrl);
       const data = await response.json();
       
       if (data.success) {
@@ -333,8 +343,30 @@ export default function PublicFormView() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-2xl mx-auto py-8 px-4">
+        {/* Preview Mode Header */}
+        {isPreviewMode && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span className="text-blue-800 font-medium">Preview Mode</span>
+              </div>
+              <button 
+                onClick={() => window.close()} 
+                className="px-3 py-1 text-sm border border-blue-300 text-blue-700 hover:bg-blue-100 rounded-md"
+              >
+                Close Preview
+              </button>
+            </div>
+            <p className="text-blue-700 text-sm mt-2">This is how your form will appear to respondents. Form submission is disabled in preview mode.</p>
+          </div>
+        )}
+
         {/* Not Accepting Responses Message */}
-        {!formData.acceptingResponses ? (
+        {!formData.acceptingResponses && !isPreviewMode ? (
           <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
             <div className="h-2 bg-blue-600"></div>
             <div className="p-6 text-center">
@@ -387,22 +419,32 @@ export default function PublicFormView() {
             <div className="mt-8 flex justify-between items-center">
               {/* Clear Form Button */}
               <Button
-                onClick={handleClearForm}
+                onClick={isPreviewMode ? undefined : handleClearForm}
                 variant="outline"
-                className="text-gray-600 border-gray-300 hover:bg-gray-50"
+                disabled={isPreviewMode}
+                className={`text-gray-600 border-gray-300 ${isPreviewMode ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
               >
                 Clear Form
               </Button>
               
               {/* Submit Button */}
               <Button
-                onClick={handleSubmit}
-                disabled={submitting}
+                onClick={isPreviewMode ? undefined : handleSubmit}
+                disabled={submitting || isPreviewMode}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {submitting ? 'Submitting...' : 'Submit'}
+                {isPreviewMode ? 'Submit Form (Preview Only)' : (submitting ? 'Submitting...' : 'Submit')}
               </Button>
             </div>
+
+            {/* Preview Mode Message */}
+            {isPreviewMode && (
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-500">
+                  Form submission is disabled in preview mode. Close this tab to return to editing.
+                </p>
+              </div>
+            )}
           </>
         )}
       </div>

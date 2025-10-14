@@ -31,7 +31,7 @@ export async function GET(
       );
     }
 
-    // Return only public information
+    // Return only public information (including settings needed for form rendering)
     return NextResponse.json({
       success: true,
       form: {
@@ -39,6 +39,10 @@ export async function GET(
         title: form.title,
         description: form.description,
         acceptingResponses: form.acceptingResponses,
+        shuffleQuestions: form.shuffleQuestions,
+        collectEmail: form.collectEmail,
+        showProgress: form.showProgress,
+        confirmationMessage: form.confirmationMessage,
         questions: form.questions.map(question => ({
           id: question.id,
           text: question.text,

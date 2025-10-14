@@ -46,6 +46,19 @@ export default function PublicFormView() {
 
   // Check if this is preview mode
   const [isPreviewMode, setIsPreviewMode] = useState(false);
+  
+  // Shuffled questions for randomization
+  const [shuffledQuestions, setShuffledQuestions] = useState<any[]>([]);
+
+  // Fisher-Yates shuffle algorithm
+  const shuffleArray = (array: any[]) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
 
   // Fetch form data on component mount
   useEffect(() => {
@@ -66,6 +79,13 @@ export default function PublicFormView() {
       
       if (data.success) {
         setFormData(data.form);
+        
+        // Handle question shuffling if enabled (but only for non-preview mode)
+        if (data.form.shuffleQuestions && !isPreview) {
+          setShuffledQuestions(shuffleArray(data.form.questions));
+        } else {
+          setShuffledQuestions(data.form.questions);
+        }
       } else {
         // Form is either not published or doesn't exist
         setNotFound(true);
@@ -115,7 +135,7 @@ export default function PublicFormView() {
     }
     
     // Check required fields
-    formData?.questions.forEach(question => {
+    shuffledQuestions.forEach(question => {
       if (question.required) {
         const response = responses[question.id];
         if (!response || 
@@ -396,7 +416,7 @@ export default function PublicFormView() {
 
             {/* Questions */}
         <div className="space-y-6">
-          {formData.questions.map((question, index) => (
+          {shuffledQuestions.map((question, index) => (
             <div key={question.id} className="bg-white rounded-lg shadow-sm p-6">
               <div className="mb-4">
                 <h3 className="text-lg font-medium text-gray-800 mb-1">

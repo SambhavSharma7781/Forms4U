@@ -29,16 +29,25 @@ model User {
 }
 
 model Form {
-  id                String     @id @map("_id") @default(auto()) @db.ObjectId
-  title             String
-  description       String?
-  published         Boolean    @default(false)
-  acceptingResponses Boolean   @default(true)
-  createdBy         String
-  user              User       @relation(fields: [createdBy], references: [id])
-  createdAt         DateTime   @default(now())
-  questions         Question[]
-  responses         Response[]
+  id                     String     @id @map("_id") @default(auto()) @db.ObjectId
+  title                  String
+  description            String?
+  published              Boolean    @default(false)
+  acceptingResponses     Boolean    @default(true)
+  createdBy              String
+  user                   User       @relation(fields: [createdBy], references: [id])
+  createdAt              DateTime   @default(now())
+  
+  // Form Settings
+  shuffleQuestions       Boolean    @default(false)
+  collectEmail           Boolean    @default(false)
+  allowMultipleResponses Boolean    @default(true)
+  showProgress           Boolean    @default(true)
+  confirmationMessage    String     @default("Your response has been recorded.")
+  restrictToOrganization Boolean    @default(false)
+  
+  questions              Question[]
+  responses              Response[]
 }
 
 model Question {

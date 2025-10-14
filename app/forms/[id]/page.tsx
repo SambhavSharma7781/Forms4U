@@ -23,6 +23,12 @@ interface FormData {
   description: string;
   published: boolean;
   acceptingResponses: boolean;
+  shuffleQuestions?: boolean;
+  collectEmail?: boolean;
+  allowMultipleResponses?: boolean;
+  showProgress?: boolean;
+  confirmationMessage?: string;
+  restrictToOrganization?: boolean;
   questions: Question[];
 }
 
@@ -65,13 +71,33 @@ export default function Form() {
   const [saving, setSaving] = useState(false);
   
   // Tab system states - Google Forms style
-  const [activeTab, setActiveTab] = useState<'questions' | 'responses'>('questions');
+  const [activeTab, setActiveTab] = useState<'questions' | 'responses' | 'settings'>('questions');
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
   const [responseCount, setResponseCount] = useState(0);
   const [expandedResponse, setExpandedResponse] = useState<string | null>(null);
 
   // Track original form data to detect changes
   const [originalFormData, setOriginalFormData] = useState<FormData | null>(null);
+
+  // Form settings states
+  const [formSettings, setFormSettings] = useState({
+    shuffleQuestions: false,
+    collectEmail: false,
+    allowMultipleResponses: true,
+    showProgress: true,
+    confirmationMessage: 'Your response has been recorded.',
+    restrictToOrganization: false
+  });
+  
+  // Track original settings for change detection
+  const [originalSettings, setOriginalSettings] = useState({
+    shuffleQuestions: false,
+    collectEmail: false,
+    allowMultipleResponses: true,
+    showProgress: true,
+    confirmationMessage: 'Your response has been recorded.',
+    restrictToOrganization: false
+  });
 
   // Check if this is an existing form or new form
   const isExistingForm = formId !== 'create';
@@ -201,6 +227,19 @@ export default function Form() {
       if (data.success) {
         setFormData(data.form);
         setOriginalFormData(data.form); // Store original data for comparison
+        
+        // Load form settings from the fetched data
+        const loadedSettings = {
+          shuffleQuestions: data.form.shuffleQuestions || false,
+          collectEmail: data.form.collectEmail || false,
+          allowMultipleResponses: data.form.allowMultipleResponses ?? true,
+          showProgress: data.form.showProgress ?? true,
+          confirmationMessage: data.form.confirmationMessage || 'Your response has been recorded.',
+          restrictToOrganization: data.form.restrictToOrganization || false
+        };
+        setFormSettings(loadedSettings);
+        setOriginalSettings(loadedSettings);
+        
         // Update navbar with form status
         navbarEvents.emit('formStatusUpdate', {
           published: data.form.published,
@@ -246,6 +285,11 @@ export default function Form() {
     } catch (error) {
       console.error('Error fetching responses:', error);
     }
+  };
+
+  // Check if settings have unsaved changes
+  const hasUnsavedSettingsChanges = () => {
+    return JSON.stringify(formSettings) !== JSON.stringify(originalSettings);
   };
 
   // Check if form has unsaved changes
@@ -536,7 +580,7 @@ export default function Form() {
   };
 
   // Response functions
-  const handleTabChange = (tab: 'questions' | 'responses') => {
+  const handleTabChange = (tab: 'questions' | 'responses' | 'settings') => {
     setActiveTab(tab);
     if (tab === 'responses') {
       // Always fetch latest responses when switching to responses tab
@@ -605,6 +649,16 @@ export default function Form() {
               }`}
             >
               Responses {responseCount > 0 && <span className="ml-1 bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">{responseCount}</span>}
+            </button>
+            <button
+              onClick={() => handleTabChange('settings')}
+              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'settings'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Settings
             </button>
           </div>
         </div>
@@ -861,6 +915,240 @@ export default function Form() {
                 </div>
               )
             )}
+          </div>
+        )}
+
+        {/* Settings Tab Content */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            
+            {/* New Form Notice */}
+            {!isExistingForm && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-yellow-800 font-medium">New Form</span>
+                </div>
+                <p className="text-yellow-700 text-sm mt-2">
+                  Please save your form first before configuring settings. Settings will be available after the form is created.
+                </p>
+              </div>
+            )}
+
+            {/* Form Settings */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <div className="flex items-center mb-6">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
+                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900">Form Settings</h3>
+              </div>
+
+              <div className="space-y-6">
+                
+                {/* Question Settings */}
+                <div className="space-y-4">
+                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                    Question Settings
+                  </h4>
+                  
+                  {/* Shuffle Questions */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Randomize Question Order</label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Questions will appear in random order for each respondent. This helps reduce response bias and ensures fair distribution of attention across all questions.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormSettings(prev => ({ ...prev, shuffleQuestions: !prev.shuffleQuestions }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formSettings.shuffleQuestions ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formSettings.shuffleQuestions ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Show Progress */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Show Progress Bar</label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Display progress indicator to respondents
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormSettings(prev => ({ ...prev, showProgress: !prev.showProgress }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formSettings.showProgress ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formSettings.showProgress ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Response Settings */}
+                <div className="space-y-4">
+                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                    Response Settings
+                  </h4>
+                  
+                  {/* Collect Email */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Collect Email Addresses</label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Require respondents to provide their email address
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormSettings(prev => ({ ...prev, collectEmail: !prev.collectEmail }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formSettings.collectEmail ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formSettings.collectEmail ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Multiple Responses */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Allow Multiple Responses</label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Users can submit multiple responses to this form
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormSettings(prev => ({ ...prev, allowMultipleResponses: !prev.allowMultipleResponses }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formSettings.allowMultipleResponses ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formSettings.allowMultipleResponses ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Restrict to Organization */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Restrict to Organization</label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Only users from your organization can respond
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormSettings(prev => ({ ...prev, restrictToOrganization: !prev.restrictToOrganization }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formSettings.restrictToOrganization ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formSettings.restrictToOrganization ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirmation Message */}
+                <div className="space-y-4">
+                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                    Confirmation Message
+                  </h4>
+                  
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Message shown after form submission
+                    </label>
+                    <textarea
+                      value={formSettings.confirmationMessage}
+                      onChange={(e) => setFormSettings(prev => ({ ...prev, confirmationMessage: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      rows={3}
+                      placeholder="Enter confirmation message..."
+                    />
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Save Settings Button */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="flex justify-end">
+                  <button
+                    onClick={async () => {
+                      if (!isExistingForm) {
+                        alert('Please save the form first before updating settings');
+                        return;
+                      }
+                      
+                      setSaving(true);
+                      try {
+                        const response = await fetch(`/api/forms/${formId}/settings`, {
+                          method: 'PUT',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify(formSettings),
+                        });
+
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                          alert('Settings saved successfully!');
+                          // Update the form data with new settings to keep everything in sync
+                          setFormData(prev => ({
+                            ...prev,
+                            ...data.settings
+                          }));
+                          // Update original settings to reflect saved state
+                          setOriginalSettings(formSettings);
+                        } else {
+                          alert('Error saving settings: ' + data.error);
+                        }
+                      } catch (error) {
+                        console.error('Error saving settings:', error);
+                        alert('Error saving settings');
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                    disabled={saving || !isExistingForm || !hasUnsavedSettingsChanges()}
+                    className={`px-4 py-2 text-white text-sm font-medium rounded-md focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                      hasUnsavedSettingsChanges() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'
+                    }`}
+                  >
+                    {saving ? 'Saving...' : hasUnsavedSettingsChanges() ? 'Save Settings' : 'No Changes'}
+                  </button>
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
 

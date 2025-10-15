@@ -69,6 +69,7 @@ export default function Form() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [loadingResponses, setLoadingResponses] = useState(false);
   
   // Tab system states - Google Forms style
   const [activeTab, setActiveTab] = useState<'questions' | 'responses' | 'settings'>('questions');
@@ -273,6 +274,7 @@ export default function Form() {
   };
 
   const fetchResponses = async () => {
+    setLoadingResponses(true);
     try {
       const response = await fetch(`/api/forms/${formId}/responses`);
       const data = await response.json();
@@ -284,6 +286,8 @@ export default function Form() {
       }
     } catch (error) {
       console.error('Error fetching responses:', error);
+    } finally {
+      setLoadingResponses(false);
     }
   };
 
@@ -823,7 +827,12 @@ export default function Form() {
                     </div>
                   )}
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">{responseCount}</div>
+                    <div className="flex items-center space-x-2">
+                      <div className="text-2xl font-bold text-blue-600">{responseCount}</div>
+                      {loadingResponses && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                      )}
+                    </div>
                     <div className="text-sm text-gray-500">Response{responseCount === 1 ? '' : 's'}</div>
                   </div>
                 </div>
@@ -831,7 +840,11 @@ export default function Form() {
             </div>
 
             {/* Responses List */}
-            {responseCount === 0 ? (
+            {loadingResponses ? (
+              <div className="bg-white rounded-lg border border-gray-200 p-8">
+                <LoadingSpinner message="Loading responses..." size="md" fullScreen={false} />
+              </div>
+            ) : responseCount === 0 ? (
               <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
                 <div className="max-w-md mx-auto">
                   <div className="text-6xl mb-4">📝</div>

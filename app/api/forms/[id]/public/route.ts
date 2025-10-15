@@ -41,6 +41,7 @@ export async function GET(
         acceptingResponses: form.acceptingResponses,
         shuffleQuestions: form.shuffleQuestions,
         collectEmail: form.collectEmail,
+        allowMultipleResponses: form.allowMultipleResponses,
         showProgress: form.showProgress,
         confirmationMessage: form.confirmationMessage,
         questions: form.questions.map(question => ({

@@ -71,6 +71,7 @@ model Option {
 model Response {
   id        String     @id @map("_id") @default(auto()) @db.ObjectId
   userId    String?   
+  email     String?    // Collected email when collectEmail setting is enabled
   formId    String     @db.ObjectId
   createdAt DateTime   @default(now())
   user      User?      @relation(fields: [userId], references: [id])

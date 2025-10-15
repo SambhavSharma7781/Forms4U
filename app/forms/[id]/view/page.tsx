@@ -24,6 +24,11 @@ interface FormData {
   title: string;
   description: string;
   acceptingResponses: boolean;
+  shuffleQuestions?: boolean;
+  collectEmail?: boolean;
+  allowMultipleResponses?: boolean;
+  showProgress?: boolean;
+  confirmationMessage?: string;
   questions: Question[];
 }
 
@@ -43,12 +48,51 @@ export default function PublicFormView() {
   const [responses, setResponses] = useState<FormResponse>({});
   const [errors, setErrors] = useState<{[key: string]: string}>({});
   const [notFound, setNotFound] = useState(false);
+  const [email, setEmail] = useState('');
+  const [hasSubmittedBefore, setHasSubmittedBefore] = useState(false);
 
   // Check if this is preview mode
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   
   // Shuffled questions for randomization
   const [shuffledQuestions, setShuffledQuestions] = useState<any[]>([]);
+  
+  // Custom confirmation message from form settings
+  const [confirmationMessage, setConfirmationMessage] = useState('Your response has been recorded.');
+
+  // Check if user has submitted this form before
+  const checkPreviousSubmission = () => {
+    const submittedForms = JSON.parse(localStorage.getItem('submittedForms') || '[]');
+    return submittedForms.includes(formId);
+  };
+
+  // Mark form as submitted by current user
+  const markFormAsSubmitted = () => {
+    const submittedForms = JSON.parse(localStorage.getItem('submittedForms') || '[]');
+    if (!submittedForms.includes(formId)) {
+      submittedForms.push(formId);
+      localStorage.setItem('submittedForms', JSON.stringify(submittedForms));
+    }
+  };
+
+  // Calculate form completion progress
+  const calculateProgress = () => {
+    if (!shuffledQuestions.length) return 0;
+    
+    const answeredQuestions = shuffledQuestions.filter(question => {
+      const response = responses[question.id];
+      if (!response) return false;
+      
+      if (typeof response === 'string') {
+        return response.trim() !== '';
+      } else if (Array.isArray(response)) {
+        return response.length > 0;
+      }
+      return false;
+    });
+    
+    return Math.round((answeredQuestions.length / shuffledQuestions.length) * 100);
+  };
 
   // Fisher-Yates shuffle algorithm
   const shuffleArray = (array: any[]) => {
@@ -66,6 +110,9 @@ export default function PublicFormView() {
     const urlParams = new URLSearchParams(window.location.search);
     const isPreview = urlParams.get('preview') === 'true';
     setIsPreviewMode(isPreview);
+    
+    // Check if user has submitted this form before
+    setHasSubmittedBefore(checkPreviousSubmission());
     
     fetchFormData(isPreview);
   }, [formId]);
@@ -118,6 +165,15 @@ export default function PublicFormView() {
   const validateForm = () => {
     const newErrors: {[key: string]: string} = {};
     
+    // Check email if collection is enabled
+    if (formData?.collectEmail) {
+      if (!email.trim()) {
+        newErrors['email'] = 'Email address is required';
+      } else if (!/\S+@\S+\.\S+/.test(email)) {
+        newErrors['email'] = 'Please enter a valid email address';
+      }
+    }
+    
     // Check if user has provided any responses at all
     const hasAnyResponses = Object.keys(responses).length > 0 && 
                            Object.values(responses).some(response => {
@@ -152,6 +208,12 @@ export default function PublicFormView() {
 
   // Handle form submission
   const handleSubmit = async () => {
+    // Check if multiple responses are allowed
+    if (!formData?.allowMultipleResponses && hasSubmittedBefore) {
+      alert('You have already submitted a response to this form. Multiple responses are not allowed.');
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -165,13 +227,21 @@ export default function PublicFormView() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          responses: responses
+          responses: responses,
+          email: formData?.collectEmail ? email : undefined
         })
       });
 
       const result = await response.json();
       
       if (result.success) {
+        // Store the custom confirmation message from API response
+        if (result.confirmationMessage) {
+          setConfirmationMessage(result.confirmationMessage);
+        }
+        // Mark form as submitted for this user
+        markFormAsSubmitted();
+        setHasSubmittedBefore(true);
         setSubmitted(true);
       } else {
         console.error('Submission error:', result.error);
@@ -345,13 +415,29 @@ export default function PublicFormView() {
   if (submitted) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-2xl mx-auto py-8 px-4">
+        <div className="max-w-2xl mx-auto pt-4 px-4">
           <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
             <div className="h-2 bg-blue-600"></div>
-            <div className="p-6 text-center">
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">{formData?.title}</h1>
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">Your response has been submitted</h2>
-              <p className="text-gray-600">Thank you for filling out this form.</p>
+            <div className="p-8">
+              <h1 className="text-4xl font-bold text-gray-900 mb-4">{formData?.title}</h1>
+              <p className="text-gray-600 text-base mb-6">{confirmationMessage}</p>
+              
+              {/* Submit another response link - Google Forms style */}
+              {formData?.allowMultipleResponses && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      setSubmitted(false);
+                      setResponses({});
+                      setEmail('');
+                      setErrors({});
+                    }}
+                    className="text-blue-600 hover:text-blue-800 underline text-sm font-medium transition-colors cursor-pointer"
+                  >
+                    Submit another response
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -402,6 +488,21 @@ export default function PublicFormView() {
           </div>
         ) : (
           <>
+            {/* Multiple Response Warning */}
+            {!formData.allowMultipleResponses && hasSubmittedBefore && !isPreviewMode && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center space-x-2">
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <span className="text-yellow-800 font-medium">Already Submitted</span>
+                </div>
+                <p className="text-yellow-700 text-sm mt-2">
+                  You have already submitted a response to this form. Multiple responses are not allowed.
+                </p>
+              </div>
+            )}
+
             {/* Form Header */}
             <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
               {/* Blue top line */}
@@ -413,6 +514,41 @@ export default function PublicFormView() {
                 )}
               </div>
             </div>
+
+            {/* Email Field */}
+            {formData?.collectEmail && (
+              <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-800 mb-1">
+                    Email address <span className="text-red-500">*</span>
+                  </h3>
+                </div>
+                
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    // Clear email error when user starts typing
+                    if (errors['email']) {
+                      setErrors(prev => ({
+                        ...prev,
+                        email: ''
+                      }));
+                    }
+                  }}
+                  className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors['email'] ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  placeholder="your.email@example.com"
+                />
+                
+                {/* Error message */}
+                {errors['email'] && (
+                  <p className="mt-2 text-sm text-red-600">{errors['email']}</p>
+                )}
+              </div>
+            )}
 
             {/* Questions */}
         <div className="space-y-6">
@@ -435,25 +571,40 @@ export default function PublicFormView() {
           ))}
         </div>
 
-            {/* Action Buttons */}
+            {/* Action Buttons with Integrated Progress */}
             <div className="mt-8 flex justify-between items-center">
               {/* Clear Form Button */}
               <Button
                 onClick={isPreviewMode ? undefined : handleClearForm}
                 variant="outline"
-                disabled={isPreviewMode}
-                className={`text-gray-600 border-gray-300 ${isPreviewMode ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                disabled={isPreviewMode || (!formData.allowMultipleResponses && hasSubmittedBefore)}
+                className={`text-gray-600 border-gray-300 ${(isPreviewMode || (!formData.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
               >
                 Clear Form
               </Button>
               
+              {/* Progress Bar in Center */}
+              {formData?.showProgress && (
+                <div className="flex items-center space-x-3">
+                  <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                      style={{ width: `${calculateProgress()}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm text-gray-600 font-medium">{calculateProgress()}%</span>
+                </div>
+              )}
+              
               {/* Submit Button */}
               <Button
                 onClick={isPreviewMode ? undefined : handleSubmit}
-                disabled={submitting || isPreviewMode}
+                disabled={submitting || isPreviewMode || (!formData.allowMultipleResponses && hasSubmittedBefore)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isPreviewMode ? 'Submit Form (Preview Only)' : (submitting ? 'Submitting...' : 'Submit')}
+                {isPreviewMode ? 'Submit Form (Preview Only)' : 
+                 (!formData.allowMultipleResponses && hasSubmittedBefore) ? 'Already Submitted' :
+                 (submitting ? 'Submitting...' : 'Submit')}
               </Button>
             </div>
 

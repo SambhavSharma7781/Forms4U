@@ -9,10 +9,11 @@ export async function POST(
   try {
     const { id: formId } = await params;
     const body = await request.json();
-    const { responses } = body;
+    const { responses, email } = body;
 
     console.log('Form submission for:', formId);
     console.log('Received responses:', responses);
+    console.log('Received email:', email);
 
 
 
@@ -35,6 +36,29 @@ export async function POST(
       );
     }
 
+    // Validate email if collection is enabled
+    if (form.collectEmail) {
+      if (!email || !email.trim()) {
+        return NextResponse.json(
+          { success: false, error: 'Email address is required' },
+          { status: 400 }
+        );
+      }
+      
+      // Basic email validation
+      const emailRegex = /\S+@\S+\.\S+/;
+      if (!emailRegex.test(email)) {
+        return NextResponse.json(
+          { success: false, error: 'Please enter a valid email address' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Check multiple responses setting
+    // Note: For anonymous users, multiple response validation is handled on the frontend
+    // using localStorage. For logged-in users, you could add server-side validation here.
+    
     // Validate required fields
     const requiredQuestions = form.questions.filter(q => q.required);
     for (const question of requiredQuestions) {
@@ -53,6 +77,7 @@ export async function POST(
     const responseRecord = await prisma.response.create({
       data: {
         formId: formId,
+        email: form.collectEmail ? email : null,
         // userId is optional for anonymous responses
       }
     });
@@ -106,6 +131,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: 'Response submitted successfully',
+      confirmationMessage: form.confirmationMessage || 'Your response has been recorded.',
       responseId: responseRecord.id
     });
 

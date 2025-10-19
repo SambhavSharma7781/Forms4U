@@ -62,7 +62,7 @@ export default function Dashboard() {
         setUserForms(data.forms);
       }
     } catch (error) {
-      console.error('Error fetching forms:', error);
+      // Error fetching forms
     } finally {
       setLoading(false);
     }
@@ -70,14 +70,11 @@ export default function Dashboard() {
 
   // Action Handlers
   const handleEditForm = (formId: string) => {
-    console.log('handleEditForm called with formId:', formId);
-    console.log('Navigating to:', `/forms/${formId}`);
     router.push(`/forms/${formId}`);
   };
 
   const handleDuplicateForm = (formId: string) => {
-    // TODO: Implement form duplication
-    alert('Form duplication feature coming soon!');
+    // Feature coming soon
   };
 
   const handleMenuToggle = (formId: string) => {
@@ -86,8 +83,7 @@ export default function Dashboard() {
 
   const handleRenameForm = (formId: string) => {
     setOpenMenuId(null);
-    // TODO: Implement rename functionality
-    alert('Form rename feature coming soon!');
+    // Feature coming soon
   };
 
   const handleOpenInNewTab = (formId: string) => {
@@ -107,12 +103,9 @@ export default function Dashboard() {
         if (response.ok) {
           // Remove from UI
           setUserForms(userForms.filter(form => form.id !== formId));
-          alert('Form deleted successfully!');
-        } else {
-          alert('Error deleting form');
         }
       } catch (error) {
-        alert('Error deleting form');
+        // Error deleting form
       }
     }
   };
@@ -127,7 +120,6 @@ export default function Dashboard() {
           <div className="w-48">
             <button 
               onClick={() => {
-                console.log('New form button clicked');
                 router.push('/forms/create');
               }}
               className="block w-full"

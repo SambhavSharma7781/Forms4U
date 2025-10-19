@@ -18,13 +18,6 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const { title, description, questions, published = false, settings } = data;
     
-    console.log('Creating form with data:', {
-      title,
-      questionsCount: questions?.length,
-      questions: questions,
-      settings
-    });
-    
 
 
     // Create or find user in our database
@@ -97,7 +90,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error saving form:', error);
     return NextResponse.json(
       { success: false, message: `Error saving form: ${error}` },
       { status: 500 }

@@ -52,9 +52,8 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching forms:', error);
     return NextResponse.json(
-      { success: false, message: "Error loading forms" },
+      { success: false, message: 'Failed to fetch forms' },
       { status: 500 }
     );
   }

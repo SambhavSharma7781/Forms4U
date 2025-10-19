@@ -56,10 +56,9 @@ export default function Navbar() {
 
   // Listen for form status updates
   useEffect(() => {
-    const handleStatusUpdate = (status: { published: boolean; acceptingResponses: boolean; formId: string; title: string }) => {
-      console.log('Navbar received status update:', JSON.stringify(status));
-      setFormStatus(status);
-      currentFormStatus = status;
+    const handleStatusUpdate = (status: { published: boolean; acceptingResponses: boolean; formId: string }) => {
+      setFormStatus({...status, title: ''});
+      currentFormStatus = {...status, title: ''};
     };
 
     navbarEvents.subscribe('formStatusUpdate', handleStatusUpdate);
@@ -105,9 +104,6 @@ export default function Navbar() {
     }
     
     if (isFormEditPage) {
-      // Debug: Show what status we have
-      console.log('getPublishButton - Current formStatus:', JSON.stringify(formStatus));
-      
       if (formStatus.published === true) {
         return (
           <div className="flex items-center space-x-3">
@@ -138,7 +134,6 @@ export default function Navbar() {
               onClick={() => {
                 const url = `${window.location.origin}/forms/${formStatus.formId}/view`;
                 navigator.clipboard.writeText(url);
-                alert('Public link copied to clipboard!');
               }}
               className="px-3 py-1.5 text-xs border border-blue-600 text-blue-600 rounded-md font-medium hover:bg-blue-50 transition-all duration-200 flex items-center gap-1.5"
             >

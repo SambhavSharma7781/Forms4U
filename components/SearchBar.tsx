@@ -49,7 +49,6 @@ export default function SearchBar() {
           setIsOpen(true);
         }
       } catch (error) {
-        console.error('Search error:', error);
         setSuggestions([]);
       } finally {
         setLoading(false);

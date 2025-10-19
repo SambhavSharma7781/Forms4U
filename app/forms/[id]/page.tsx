@@ -277,12 +277,10 @@ export default function Form() {
           title: data.form.title
         });
       } else {
-        alert('Form not found or access denied');
         router.push('/');
       }
     } catch (error) {
       console.error('Error fetching form:', error);
-      alert('Error loading form');
       router.push('/');
     } finally {
       setLoading(false);
@@ -462,7 +460,6 @@ export default function Form() {
 
   const saveForm = async (forcePublished?: boolean) => {
     if (!formData.title.trim()) {
-      alert('Please add a form title');
       return;
     }
 
@@ -545,17 +542,14 @@ export default function Form() {
         } else {
           message = publishedStatus ? 'Form published successfully!' : 'Form saved as draft!';
         }
-        alert(message);
         
         if (!isExistingForm) {
           router.push('/');
         }
       } else {
-        alert('Error saving form: ' + data.error);
       }
     } catch (error) {
       console.error('Error saving form:', error);
-      alert('Error saving form');
     } finally {
       setSaving(false);
     }
@@ -565,7 +559,6 @@ export default function Form() {
 
   const togglePublishStatus = async () => {
     if (!isExistingForm) {
-      alert('Please save the form first');
       return;
     }
 
@@ -597,14 +590,11 @@ export default function Form() {
         });
         const message = newPublishedStatus ? 'Form published!' : 'Form unpublished (draft)';
         console.log('togglePublishStatus - Alert message:', message, 'newPublishedStatus:', newPublishedStatus);
-        alert(message);
       } else {
         console.error('togglePublishStatus - API error:', data);
-        alert('Error updating publish status: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error toggling publish status:', error);
-      alert('Error updating publish status');
     } finally {
       setSaving(false);
     }
@@ -612,7 +602,6 @@ export default function Form() {
 
   const toggleResponseAcceptance = async () => {
     if (!formData.published) {
-      alert('Form must be published first');
       return;
     }
 
@@ -643,14 +632,11 @@ export default function Form() {
           title: formData.title
         });
         const message = newAcceptingStatus ? 'Now accepting responses!' : 'Stopped accepting responses';
-        alert(message);
       } else {
         console.error('toggleResponseAcceptance - API error:', data);
-        alert('Error updating response status: ' + (data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Error toggling response acceptance:', error);
-      alert('Error updating response status');
     } finally {
       setSaving(false);
     }
@@ -949,7 +935,6 @@ export default function Form() {
                       onClick={() => {
                         if (typeof window !== 'undefined') {
                           navigator.clipboard.writeText(`${window.location.origin}/forms/${formId}/view`);
-                          alert('Link copied to clipboard!');
                         }
                       }}
                       className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -1263,7 +1248,6 @@ export default function Form() {
                   <button
                     onClick={async () => {
                       if (!isExistingForm) {
-                        alert('Please save the form first before updating settings');
                         return;
                       }
                       
@@ -1280,7 +1264,6 @@ export default function Form() {
                         const data = await response.json();
                         
                         if (data.success) {
-                          alert('Settings saved successfully!');
                           // Update the form data with new settings to keep everything in sync
                           setFormData(prev => ({
                             ...prev,
@@ -1289,11 +1272,9 @@ export default function Form() {
                           // Update original settings to reflect saved state
                           setOriginalSettings(formSettings);
                         } else {
-                          alert('Error saving settings: ' + data.error);
                         }
                       } catch (error) {
                         console.error('Error saving settings:', error);
-                        alert('Error saving settings');
                       } finally {
                         setSaving(false);
                       }

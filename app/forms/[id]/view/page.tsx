@@ -358,7 +358,6 @@ export default function PublicFormView() {
                            });
 
     if (!hasAnyResponses) {
-      alert('Please provide at least one response before submitting the form.');
       return false;
     }
     
@@ -382,7 +381,6 @@ export default function PublicFormView() {
   const handleSubmit = async () => {
     // Check if multiple responses are allowed
     if (!formData?.allowMultipleResponses && hasSubmittedBefore) {
-      alert('You have already submitted a response to this form. Multiple responses are not allowed.');
       return;
     }
 
@@ -441,11 +439,9 @@ export default function PublicFormView() {
         setSubmitted(true);
       } else {
         console.error('Submission error:', result.error);
-        alert('Error submitting form: ' + result.error);
       }
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Error submitting form. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -465,7 +461,6 @@ export default function PublicFormView() {
                         });
 
     if (!hasResponses) {
-      alert('Please fill the form first before clearing the form.');
       return;
     }
 

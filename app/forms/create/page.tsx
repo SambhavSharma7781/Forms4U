@@ -143,7 +143,6 @@ export default function CreateFormPage() {
 
   const handleSaveForm = async (published = false) => {
     if (!formTitle.trim()) {
-      alert('Please add a form title');
       return;
     }
 
@@ -169,18 +168,14 @@ export default function CreateFormPage() {
       
       if (result.success) {
         if (published) {
-          alert('Form published successfully!');
           // Redirect to home page only when publishing
           window.location.href = '/';
         } else {
-          alert('Draft saved successfully!');
           // Stay on the page when saving draft
         }
       } else {
-        alert('Error saving form: ' + result.message);
       }
     } catch (error) {
-      alert('Error saving form');
       console.error('Save error:', error);
     } finally {
       setSaving(false);

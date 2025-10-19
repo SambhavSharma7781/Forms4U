@@ -44,11 +44,18 @@ export async function GET(
         allowMultipleResponses: form.allowMultipleResponses,
         showProgress: form.showProgress,
         confirmationMessage: form.confirmationMessage,
+        // Quiz settings (needed for quiz rendering)
+        isQuiz: form.isQuiz,
+        showCorrectAnswers: form.showCorrectAnswers,
+        releaseGrades: form.releaseGrades,
         questions: form.questions.map(question => ({
           id: question.id,
           text: question.text,
           type: question.type,
           required: question.required,
+          // Quiz fields
+          points: question.points,
+          correctAnswers: question.correctAnswers,
           options: question.options.map(option => ({
             id: option.id,
             text: option.text

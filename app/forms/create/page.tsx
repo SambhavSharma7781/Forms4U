@@ -12,6 +12,9 @@ interface Question {
   type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
   required: boolean;
   options?: string[];
+  // Quiz fields
+  points?: number;
+  correctAnswers?: string[];
 }
 
 export default function CreateFormPage() {
@@ -26,6 +29,22 @@ export default function CreateFormPage() {
       required: false
     }
   ]);
+  
+  // Tab system
+  const [activeTab, setActiveTab] = useState<'questions' | 'settings'>('questions');
+  
+  // Form settings states
+  const [formSettings, setFormSettings] = useState({
+    shuffleQuestions: false,
+    collectEmail: false,
+    allowMultipleResponses: true,
+    showProgress: true,
+    confirmationMessage: 'Your response has been recorded.',
+    // Quiz settings
+    isQuiz: false,
+    showCorrectAnswers: true,
+    releaseGrades: true
+  });
 
   // Listen for navbar button clicks
   useEffect(() => {
@@ -83,10 +102,20 @@ export default function CreateFormPage() {
     type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
     required: boolean;
     options: string[];
+    points?: number;
+    correctAnswers?: string[];
   }) => {
     setQuestions(questions.map(q => 
       q.id === updatedData.id 
-        ? { ...q, ...updatedData }
+        ? { 
+            ...q, 
+            question: updatedData.question,
+            type: updatedData.type,
+            required: updatedData.required,
+            options: updatedData.options,
+            points: updatedData.points,
+            correctAnswers: updatedData.correctAnswers
+          }
         : q
     ));
   };
@@ -124,7 +153,8 @@ export default function CreateFormPage() {
         title: formTitle,
         description: formDescription,
         questions: questions,
-        published: published
+        published: published,
+        settings: formSettings
       };
 
       const response = await fetch('/api/forms/create', {
@@ -138,9 +168,14 @@ export default function CreateFormPage() {
       const result = await response.json();
       
       if (result.success) {
-        alert('Form saved successfully!');
-        // Redirect to home page after successful save
-        window.location.href = '/';
+        if (published) {
+          alert('Form published successfully!');
+          // Redirect to home page only when publishing
+          window.location.href = '/';
+        } else {
+          alert('Draft saved successfully!');
+          // Stay on the page when saving draft
+        }
       } else {
         alert('Error saving form: ' + result.message);
       }
@@ -153,7 +188,7 @@ export default function CreateFormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-blue-50">
       <div className="max-w-4xl mx-auto px-6 py-8">
         
         {/* Form Header Card - Our Style */}
@@ -183,33 +218,291 @@ export default function CreateFormPage() {
           </div>
         </div>
 
-        {/* Questions Section */}
-        <div className="space-y-6">
-          {questions.map((q) => (
-            <QuestionCard 
-              key={q.id}
-              id={q.id}
-              initialQuestion={q.question}
-              initialType={q.type}
-              initialRequired={q.required}
-              onDelete={() => handleDeleteQuestion(q.id)}
-              onDuplicate={() => handleDuplicateQuestion(q.id)}
-              onUpdate={handleUpdateQuestion}
-            />
-          ))}
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200 mb-4">
+          <div className="flex justify-between items-center">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('questions')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'questions'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Questions
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'settings'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Settings
+              </button>
+            </nav>
+            
+            {/* Total Points Display */}
+            {formSettings.isQuiz && questions.length > 0 && (
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <span className="font-medium text-gray-700">
+                  Total points: {questions.reduce((total, q) => total + (q.points || 1), 0)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Add Question Button */}
+        {/* Tab Content */}
         <div className="mb-6">
-          <button 
-            onClick={handleAddQuestion}
-            className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            <span>Add Question</span>
-          </button>
+        {activeTab === 'questions' && (
+          <>
+                {/* Questions Section */}
+            <div className="space-y-6">
+              {questions.map((q) => (
+                <QuestionCard 
+                  key={q.id}
+                  id={q.id}
+                  initialQuestion={q.question}
+                  initialType={q.type}
+                  initialRequired={q.required}
+                  initialOptions={q.options}
+                  // Quiz props
+                  isQuiz={formSettings.isQuiz}
+                  initialPoints={q.points || 1}
+                  initialCorrectAnswers={q.correctAnswers || []}
+                  onDelete={() => handleDeleteQuestion(q.id)}
+                  onDuplicate={() => handleDuplicateQuestion(q.id)}
+                  onUpdate={handleUpdateQuestion}
+                />
+              ))}
+            </div>
+
+            {/* Add Question Button */}
+            <div className="mt-6">
+              <button 
+                onClick={handleAddQuestion}
+                className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                <span>Add Question</span>
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Settings Tab Content */}
+        {activeTab === 'settings' && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-6">Form Settings</h3>
+            
+            <div className="space-y-8">
+              {/* Question Settings */}
+              <div className="space-y-4">
+                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                  Question Settings
+                </h4>
+                
+                {/* Shuffle Questions */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <label className="text-sm font-medium text-gray-700">Shuffle Question Order</label>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Present questions in random order to each respondent
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFormSettings(prev => ({ ...prev, shuffleQuestions: !prev.shuffleQuestions }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formSettings.shuffleQuestions ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        formSettings.shuffleQuestions ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Show Progress */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <label className="text-sm font-medium text-gray-700">Show Progress Bar</label>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Display completion progress to respondents
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFormSettings(prev => ({ ...prev, showProgress: !prev.showProgress }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formSettings.showProgress ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        formSettings.showProgress ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Response Settings */}
+              <div className="space-y-4">
+                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                  Response Settings
+                </h4>
+                
+                {/* Collect Email */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <label className="text-sm font-medium text-gray-700">Collect Email Addresses</label>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Require respondents to provide their email address
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFormSettings(prev => ({ ...prev, collectEmail: !prev.collectEmail }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formSettings.collectEmail ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        formSettings.collectEmail ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Multiple Responses */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <label className="text-sm font-medium text-gray-700">Allow Multiple Responses</label>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Users can submit multiple responses to this form
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFormSettings(prev => ({ ...prev, allowMultipleResponses: !prev.allowMultipleResponses }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formSettings.allowMultipleResponses ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        formSettings.allowMultipleResponses ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Quiz Settings */}
+              <div className="space-y-4">
+                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                  Quiz Settings
+                </h4>
+                
+                {/* Make this a quiz */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <label className="text-sm font-medium text-gray-700">Make this a quiz</label>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Collect and grade responses with automatic scoring
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFormSettings(prev => ({ ...prev, isQuiz: !prev.isQuiz }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formSettings.isQuiz ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        formSettings.isQuiz ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Quiz-specific options */}
+                {formSettings.isQuiz && (
+                  <>
+                    {/* Release grades */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium text-gray-700">Release grades immediately</label>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Show quiz results right after submission
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setFormSettings(prev => ({ ...prev, releaseGrades: !prev.releaseGrades }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formSettings.releaseGrades ? 'bg-blue-600' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formSettings.releaseGrades ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {/* Show correct answers */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <label className="text-sm font-medium text-gray-700">Show correct answers</label>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Display correct answers after quiz submission
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setFormSettings(prev => ({ ...prev, showCorrectAnswers: !prev.showCorrectAnswers }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          formSettings.showCorrectAnswers ? 'bg-blue-600' : 'bg-gray-300'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            formSettings.showCorrectAnswers ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Confirmation Message */}
+              <div className="space-y-4">
+                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                  Confirmation Message
+                </h4>
+                
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">
+                    Message shown after form submission
+                  </label>
+                  <textarea
+                    value={formSettings.confirmationMessage}
+                    onChange={(e) => setFormSettings(prev => ({ ...prev, confirmationMessage: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    rows={3}
+                    placeholder="Enter confirmation message..."
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         </div>
 
         {/* Actions */}

@@ -16,7 +16,14 @@ export async function POST(request: NextRequest) {
 
     // Get data from request
     const data = await request.json();
-    const { title, description, questions, published = false } = data;
+    const { title, description, questions, published = false, settings } = data;
+    
+    console.log('Creating form with data:', {
+      title,
+      questionsCount: questions?.length,
+      questions: questions,
+      settings
+    });
     
 
 
@@ -46,11 +53,24 @@ export async function POST(request: NextRequest) {
         description,
         published,
         createdBy: userId,
+        // Form settings
+        shuffleQuestions: settings?.shuffleQuestions || false,
+        collectEmail: settings?.collectEmail || false,
+        allowMultipleResponses: settings?.allowMultipleResponses ?? true,
+        showProgress: settings?.showProgress ?? true,
+        confirmationMessage: settings?.confirmationMessage || 'Your response has been recorded.',
+        // Quiz settings
+        isQuiz: settings?.isQuiz || false,
+        showCorrectAnswers: settings?.showCorrectAnswers ?? true,
+        releaseGrades: settings?.releaseGrades ?? true,
         questions: {
           create: questions.map((question: any, index: number) => ({
-            text: question.text,
+            text: question.question || question.text, // Handle both properties
             type: question.type,
             required: question.required || false,
+            // Quiz fields
+            points: question.points || 1,
+            correctAnswers: question.correctAnswers || [],
             options: question.options
               ? {
                   create: question.options.map((option: string, optionIndex: number) => ({

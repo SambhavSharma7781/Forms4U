@@ -15,6 +15,9 @@ interface Question {
   type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES';
   required: boolean;
   options: { id: string; text: string; }[];
+  // Quiz fields
+  points?: number;
+  correctAnswers?: string[];
 }
 
 interface FormData {
@@ -29,6 +32,10 @@ interface FormData {
   showProgress?: boolean;
   confirmationMessage?: string;
   restrictToOrganization?: boolean;
+  // Quiz fields
+  isQuiz?: boolean;
+  showCorrectAnswers?: boolean;
+  releaseGrades?: boolean;
   questions: Question[];
 }
 
@@ -87,7 +94,10 @@ export default function Form() {
     allowMultipleResponses: true,
     showProgress: true,
     confirmationMessage: 'Your response has been recorded.',
-    restrictToOrganization: false
+    // Quiz settings
+    isQuiz: false,
+    showCorrectAnswers: true,
+    releaseGrades: true
   });
   
   // Track original settings for change detection
@@ -97,7 +107,10 @@ export default function Form() {
     allowMultipleResponses: true,
     showProgress: true,
     confirmationMessage: 'Your response has been recorded.',
-    restrictToOrganization: false
+    // Quiz settings
+    isQuiz: false,
+    showCorrectAnswers: true,
+    releaseGrades: true
   });
 
   // Check if this is an existing form or new form
@@ -208,6 +221,14 @@ export default function Form() {
 
 
 
+  // Sync formData with formSettings changes for components that rely on formData
+  useEffect(() => {
+    setFormData(prev => ({
+      ...prev,
+      ...formSettings
+    }));
+  }, [formSettings]);
+
   // Cleanup navbar when component unmounts
   useEffect(() => {
     return () => {
@@ -236,8 +257,16 @@ export default function Form() {
           allowMultipleResponses: data.form.allowMultipleResponses ?? true,
           showProgress: data.form.showProgress ?? true,
           confirmationMessage: data.form.confirmationMessage || 'Your response has been recorded.',
-          restrictToOrganization: data.form.restrictToOrganization || false
+          // Quiz settings
+          isQuiz: data.form.isQuiz || false,
+          showCorrectAnswers: data.form.showCorrectAnswers ?? true,
+          releaseGrades: data.form.releaseGrades ?? true
         };
+        console.log('🎯 Loaded quiz settings:', {
+          isQuiz: loadedSettings.isQuiz,
+          showCorrectAnswers: loadedSettings.showCorrectAnswers,
+          releaseGrades: loadedSettings.releaseGrades
+        });
         setFormSettings(loadedSettings);
         setOriginalSettings(loadedSettings);
         
@@ -306,6 +335,11 @@ export default function Form() {
       return true;
     }
     
+    // Compare form settings (including quiz settings)
+    if (hasUnsavedSettingsChanges()) {
+      return true;
+    }
+    
     // Compare questions count
     if (formData.questions.length !== originalFormData.questions.length) {
       return true;
@@ -321,6 +355,18 @@ export default function Form() {
       if (currentQ.text !== originalQ.text ||
           currentQ.type !== originalQ.type ||
           currentQ.required !== originalQ.required) {
+        return true;
+      }
+      
+      // Compare quiz fields
+      if ((currentQ.points || 1) !== (originalQ.points || 1)) {
+        return true;
+      }
+      
+      // Compare correct answers
+      const currentCorrectAnswers = JSON.stringify(currentQ.correctAnswers || []);
+      const originalCorrectAnswers = JSON.stringify(originalQ.correctAnswers || []);
+      if (currentCorrectAnswers !== originalCorrectAnswers) {
         return true;
       }
       
@@ -428,10 +474,34 @@ export default function Form() {
         ? (forcePublished !== undefined ? forcePublished : formData.published)
         : (forcePublished !== undefined ? forcePublished : false);
       
-      // Create payload with correct published status
-      const payload = { ...formData, published: publishedStatus };
+      // Create payload with correct published status and proper data structure
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        published: publishedStatus,
+        questions: formData.questions.map(q => ({
+          question: q.text, // API expects 'question' field
+          type: q.type,
+          required: q.required,
+          options: q.options.map(opt => opt.text),
+          // Quiz fields
+          points: q.points || 1,
+          correctAnswers: q.correctAnswers || []
+        })),
+        settings: {
+          shuffleQuestions: formSettings.shuffleQuestions,
+          collectEmail: formSettings.collectEmail,
+          allowMultipleResponses: formSettings.allowMultipleResponses,
+          showProgress: formSettings.showProgress,
+          confirmationMessage: formSettings.confirmationMessage,
+          // Quiz settings
+          isQuiz: formSettings.isQuiz,
+          showCorrectAnswers: formSettings.showCorrectAnswers,
+          releaseGrades: formSettings.releaseGrades
+        }
+      };
       
-      const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
+      const url = isExistingForm ? `/api/forms/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
@@ -449,6 +519,9 @@ export default function Form() {
         const updatedFormData = { ...formData, published: publishedStatus };
         setFormData(updatedFormData);
         setOriginalFormData(updatedFormData); // Update original data to reflect saved state
+        
+        // Also update original settings to reflect saved state
+        setOriginalSettings(formSettings);
         
         // Update navbar with new status
         navbarEvents.emit('formStatusUpdate', {
@@ -628,42 +701,51 @@ export default function Form() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-blue-50">
       <div className="max-w-4xl mx-auto px-6 py-8">
         
         {/* Google Forms Style Tab Navigation */}
         <div className="bg-white rounded-lg border border-gray-200 mb-6">
-          <div className="flex border-b border-gray-200">
-            <button
-              onClick={() => handleTabChange('questions')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'questions'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Questions
-            </button>
-            <button
-              onClick={() => handleTabChange('responses')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'responses'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Responses {responseCount > 0 && <span className="ml-1 bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">{responseCount}</span>}
-            </button>
-            <button
-              onClick={() => handleTabChange('settings')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'settings'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              Settings
-            </button>
+          <div className="flex justify-between items-center border-b border-gray-200">
+            <div className="flex">
+              <button
+                onClick={() => handleTabChange('questions')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'questions'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Questions
+              </button>
+              <button
+                onClick={() => handleTabChange('responses')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'responses'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Responses {responseCount > 0 && <span className="ml-1 bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">{responseCount}</span>}
+              </button>
+              <button
+                onClick={() => handleTabChange('settings')}
+                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === 'settings'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Settings
+              </button>
+            </div>
+            
+            {/* Total Points Display */}
+            {formSettings.isQuiz && formData.questions.length > 0 && (
+              <div className="text-sm text-gray-600 px-6">
+                Total points: {formData.questions.reduce((total, q) => total + (q.points || 1), 0)}
+              </div>
+            )}
           </div>
         </div>
 
@@ -708,6 +790,7 @@ export default function Form() {
                   className="w-full text-3xl font-normal text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
                   placeholder="Untitled form"
                 />
+                
                 <textarea
                   value={formData.description}
                   onChange={(e) => updateFormDescription(e.target.value)}
@@ -728,6 +811,10 @@ export default function Form() {
                   initialType={question.type}
                   initialRequired={question.required}
                   initialOptions={question.options?.map((opt: any) => opt.text) || []}
+                  // Quiz props
+                  isQuiz={formSettings.isQuiz}
+                  initialPoints={question.points || 1}
+                  initialCorrectAnswers={question.correctAnswers || []}
                   onDelete={() => deleteQuestion(question.id)}
                   onDuplicate={() => duplicateQuestion(question.id)}
                   onUpdate={(data) => {
@@ -742,7 +829,10 @@ export default function Form() {
                             options: data.options.map((optText: string, idx: number) => ({
                               id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
                               text: optText
-                            }))
+                            })),
+                            // Quiz fields
+                            points: data.points,
+                            correctAnswers: data.correctAnswers
                           }
                         : q
                     );
@@ -1065,27 +1155,84 @@ export default function Form() {
                     </button>
                   </div>
 
-                  {/* Restrict to Organization */}
+                </div>
+
+                {/* Quiz Settings */}
+                <div className="space-y-4">
+                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                    Quiz Settings
+                  </h4>
+                  
+                  {/* Make this a quiz */}
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-700">Restrict to Organization</label>
+                      <label className="text-sm font-medium text-gray-700">Make this a quiz</label>
                       <p className="text-sm text-gray-500 mt-1">
-                        Only users from your organization can respond
+                        Collect and grade responses with automatic scoring
                       </p>
                     </div>
                     <button
-                      onClick={() => setFormSettings(prev => ({ ...prev, restrictToOrganization: !prev.restrictToOrganization }))}
+                      onClick={() => setFormSettings(prev => ({ ...prev, isQuiz: !prev.isQuiz }))}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        formSettings.restrictToOrganization ? 'bg-blue-600' : 'bg-gray-300'
+                        formSettings.isQuiz ? 'bg-blue-600' : 'bg-gray-300'
                       }`}
                     >
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          formSettings.restrictToOrganization ? 'translate-x-6' : 'translate-x-1'
+                          formSettings.isQuiz ? 'translate-x-6' : 'translate-x-1'
                         }`}
                       />
                     </button>
                   </div>
+
+                  {/* Quiz-specific options (only show when quiz is enabled) */}
+                  {formSettings.isQuiz && (
+                    <>
+                      {/* Release grades immediately */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <label className="text-sm font-medium text-gray-700">Release grades immediately</label>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Show quiz results right after submission
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setFormSettings(prev => ({ ...prev, releaseGrades: !prev.releaseGrades }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            formSettings.releaseGrades ? 'bg-blue-600' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              formSettings.releaseGrades ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Show correct answers */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <label className="text-sm font-medium text-gray-700">Show correct answers</label>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Display correct answers after quiz submission
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setFormSettings(prev => ({ ...prev, showCorrectAnswers: !prev.showCorrectAnswers }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            formSettings.showCorrectAnswers ? 'bg-blue-600' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              formSettings.showCorrectAnswers ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Confirmation Message */}

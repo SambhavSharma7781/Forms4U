@@ -9,11 +9,12 @@ export async function POST(
   try {
     const { id: formId } = await params;
     const body = await request.json();
-    const { responses, email } = body;
+    const { responses, email, totalScore, maxScore, quizResults } = body;
 
     console.log('Form submission for:', formId);
     console.log('Received responses:', responses);
     console.log('Received email:', email);
+    console.log('Quiz data:', { totalScore, maxScore, quizResults });
 
 
 
@@ -78,6 +79,9 @@ export async function POST(
       data: {
         formId: formId,
         email: form.collectEmail ? email : null,
+        // Quiz fields
+        totalScore: totalScore || null,
+        maxScore: maxScore || null,
         // userId is optional for anonymous responses
       }
     });
@@ -86,7 +90,10 @@ export async function POST(
 
     // Create answer records for each question response
     const answerPromises = Object.entries(responses).map(async ([questionId, answerData]) => {
-      console.log(`Processing answer for question ${questionId}:`, answerData);
+      console.log(`\n=== Processing Question ${questionId} ===`);
+      console.log('Raw answerData:', answerData);
+      console.log('answerData type:', typeof answerData);
+      console.log('answerData is array:', Array.isArray(answerData));
       
       // Find the question to determine its type
       const question = form.questions.find(q => q.id === questionId);
@@ -95,19 +102,33 @@ export async function POST(
         return null;
       }
 
+      console.log('Question type:', question.type);
+
       let answerText = null;
       let selectedOptions: string[] = [];
+      let isCorrect = null;
+      let pointsEarned = null;
 
       // Handle different answer types
       if (typeof answerData === 'string') {
         // Single text answer or single choice
         answerText = answerData;
-        console.log(`String answer: "${answerText}"`);
+        selectedOptions = []; // Empty for single answers
+        console.log(`✅ String answer: "${answerText}"`);
       } else if (Array.isArray(answerData)) {
         // Multiple choice (checkboxes)
-        selectedOptions = answerData;
-        answerText = answerData.join(', '); // Store as comma-separated text too
-        console.log(`Array answer: [${selectedOptions.join(', ')}]`);
+        selectedOptions = answerData.filter(item => item && item.trim() !== ''); // Filter out empty strings
+        answerText = selectedOptions.join(', '); // Store as comma-separated text too
+        console.log(`✅ Array answer:`, selectedOptions);
+        console.log(`✅ Converted to text: "${answerText}"`);
+      } else {
+        console.log('❌ Unknown answer data type:', answerData);
+      }
+
+      // Add quiz result data if available
+      if (quizResults && quizResults[questionId]) {
+        isCorrect = quizResults[questionId].isCorrect;
+        pointsEarned = quizResults[questionId].pointsEarned;
       }
 
       const answerRecord = await prisma.answer.create({
@@ -115,11 +136,18 @@ export async function POST(
           responseId: responseRecord.id,
           questionId: questionId,
           answerText: answerText,
-          selectedOptions: selectedOptions
+          selectedOptions: selectedOptions,
+          isCorrect: isCorrect,
+          pointsEarned: pointsEarned,
         }
       });
 
-      console.log('Created answer record:', answerRecord);
+      console.log('✅ Created answer record:', {
+        id: answerRecord.id,
+        answerText: answerRecord.answerText,
+        selectedOptions: answerRecord.selectedOptions,
+        selectedOptionsLength: answerRecord.selectedOptions.length
+      });
       return answerRecord;
     });
 

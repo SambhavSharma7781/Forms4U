@@ -44,7 +44,11 @@ model Form {
   allowMultipleResponses Boolean    @default(true)
   showProgress           Boolean    @default(true)
   confirmationMessage    String     @default("Your response has been recorded.")
-  restrictToOrganization Boolean    @default(false)
+  
+  // Quiz Settings
+  isQuiz                 Boolean    @default(false)
+  showCorrectAnswers     Boolean    @default(true)
+  releaseGrades          Boolean    @default(true)
   
   questions              Question[]
   responses              Response[]
@@ -57,6 +61,11 @@ model Question {
   required  Boolean      @default(false)
   formId    String       @db.ObjectId
   form      Form         @relation(fields: [formId], references: [id])
+  
+  // Quiz fields
+  points             Int       @default(1)
+  correctAnswers     String[]  @default([])  // For multiple choice, checkboxes
+  
   options   Option[]
   answers   Answer[]
 }
@@ -74,6 +83,11 @@ model Response {
   email     String?    // Collected email when collectEmail setting is enabled
   formId    String     @db.ObjectId
   createdAt DateTime   @default(now())
+  
+  // Quiz results
+  totalScore     Int?     // Total points scored (null for regular forms)
+  maxScore       Int?     // Maximum possible points
+  
   user      User?      @relation(fields: [userId], references: [id])
   form      Form       @relation(fields: [formId], references: [id])
   answers   Answer[]
@@ -85,6 +99,11 @@ model Answer {
   questionId     String    @db.ObjectId
   answerText     String?
   selectedOptions String[]  @default([])
+  
+  // Quiz grading
+  isCorrect      Boolean?  // null for regular forms, true/false for quiz
+  pointsEarned   Int?      // Points earned for this answer
+  
   response       Response  @relation(fields: [responseId], references: [id])
   question       Question  @relation(fields: [questionId], references: [id])
 }

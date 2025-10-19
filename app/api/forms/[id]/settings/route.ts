@@ -47,7 +47,10 @@ export async function PUT(
         allowMultipleResponses: settingsData.allowMultipleResponses,
         showProgress: settingsData.showProgress,
         confirmationMessage: settingsData.confirmationMessage,
-        restrictToOrganization: settingsData.restrictToOrganization
+        // Quiz settings
+        isQuiz: settingsData.isQuiz,
+        showCorrectAnswers: settingsData.showCorrectAnswers,
+        releaseGrades: settingsData.releaseGrades
       }
     });
 
@@ -60,7 +63,10 @@ export async function PUT(
         allowMultipleResponses: updatedForm.allowMultipleResponses,
         showProgress: updatedForm.showProgress,
         confirmationMessage: updatedForm.confirmationMessage,
-        restrictToOrganization: updatedForm.restrictToOrganization
+        // Quiz settings
+        isQuiz: updatedForm.isQuiz,
+        showCorrectAnswers: updatedForm.showCorrectAnswers,
+        releaseGrades: updatedForm.releaseGrades
       }
     });
 

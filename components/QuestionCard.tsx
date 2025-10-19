@@ -19,6 +19,10 @@ interface QuestionCardProps {
   initialType?: QuestionType;
   initialRequired?: boolean;
   initialOptions?: string[];
+  // Quiz props
+  isQuiz?: boolean;
+  initialPoints?: number;
+  initialCorrectAnswers?: string[];
   onDelete?: () => void;
   onDuplicate?: () => void;
   onUpdate?: (data: {
@@ -27,6 +31,8 @@ interface QuestionCardProps {
     type: QuestionType;
     required: boolean;
     options: string[];
+    points?: number;
+    correctAnswers?: string[];
   }) => void;
 }
 
@@ -36,6 +42,10 @@ export default function QuestionCard({
   initialType = "SHORT_ANSWER",
   initialRequired = false,
   initialOptions = [],
+  // Quiz props
+  isQuiz = false,
+  initialPoints = 1,
+  initialCorrectAnswers = [],
   onDelete,
   onDuplicate,
   onUpdate
@@ -44,6 +54,19 @@ export default function QuestionCard({
   const [questionType, setQuestionType] = useState<QuestionType>(initialType);
   const [required, setRequired] = useState(initialRequired);
   const [isEditing, setIsEditing] = useState(!initialQuestion);
+  // Quiz states
+  const [points, setPoints] = useState(initialPoints);
+  const [correctAnswers, setCorrectAnswers] = useState<string[]>(() => {
+    // If initial correct answers are provided, use them
+    if (initialCorrectAnswers.length > 0) {
+      return initialCorrectAnswers;
+    }
+    // For text questions, initialize with one empty answer field
+    if (questionType === 'SHORT_ANSWER' || questionType === 'PARAGRAPH') {
+      return [''];
+    }
+    return [];
+  });
   const [options, setOptions] = useState<string[]>(() => {
     // If initialOptions are provided, use them
     if (initialOptions.length > 0) {
@@ -64,7 +87,10 @@ export default function QuestionCard({
         question,
         type: questionType,
         required,
-        options: options.filter(opt => opt.trim() !== "")
+        options: options.filter(opt => opt.trim() !== ""),
+        // Quiz fields
+        points: isQuiz ? points : undefined,
+        correctAnswers: isQuiz ? correctAnswers : undefined
       });
     }
   };
@@ -72,7 +98,7 @@ export default function QuestionCard({
   // Notify parent when key data changes
   useEffect(() => {
     notifyParent();
-  }, [question, questionType, required, options]);
+  }, [question, questionType, required, options, points, correctAnswers, isQuiz]);
 
   // Handle options when question type changes
   useEffect(() => {
@@ -97,7 +123,11 @@ export default function QuestionCard({
 
   const handleTypeChange = (newType: QuestionType) => {
     setQuestionType(newType);
-    // Options will be handled by the useEffect above
+    
+    // Initialize correct answers for text questions
+    if ((newType === 'SHORT_ANSWER' || newType === 'PARAGRAPH') && correctAnswers.length === 0) {
+      setCorrectAnswers(['']);
+    }
   };
 
   const addOption = () => {
@@ -330,6 +360,119 @@ export default function QuestionCard({
               </button>
             </div>
           </div>
+
+          {/* Quiz Configuration */}
+          {isQuiz && (
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-medium text-blue-800">Quiz Settings</h4>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-blue-600">Points:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={points}
+                    onChange={(e) => setPoints(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 px-2 py-1 text-sm border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Correct Answer Configuration */}
+              {(questionType === 'MULTIPLE_CHOICE' || questionType === 'CHECKBOXES') && options.length > 0 && (
+                <div>
+                  <p className="text-sm text-blue-700 mb-2">
+                    {questionType === 'MULTIPLE_CHOICE' ? 'Select the correct answer:' : 'Select all correct answers:'}
+                  </p>
+                  <div className="space-y-2">
+                    {options.map((option, index) => (
+                      option.trim() && (
+                        <label key={index} className="flex items-center space-x-2 cursor-pointer">
+                          <input
+                            type={questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
+                            name={`correct-${id}`}
+                            value={option}
+                            checked={correctAnswers.includes(option)}
+                            onChange={(e) => {
+                              if (questionType === 'MULTIPLE_CHOICE') {
+                                // Single selection for multiple choice
+                                setCorrectAnswers([option]); // Always set to the clicked option
+                              } else {
+                                // Multiple selection for checkboxes
+                                if (e.target.checked) {
+                                  setCorrectAnswers([...correctAnswers, option]);
+                                } else {
+                                  setCorrectAnswers(correctAnswers.filter(ans => ans !== option));
+                                }
+                              }
+                            }}
+                            className="w-4 h-4 text-blue-600 border-blue-300 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-blue-800">{option}</span>
+                        </label>
+                      )
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Text question answer input */}
+              {(questionType === 'SHORT_ANSWER' || questionType === 'PARAGRAPH') && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Correct Answer(s) - Add multiple acceptable answers
+                    </label>
+                    <div className="space-y-2">
+                      {correctAnswers.map((answer, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <input
+                            type="text"
+                            value={answer}
+                            onChange={(e) => {
+                              const newAnswers = [...correctAnswers];
+                              newAnswers[index] = e.target.value;
+                              setCorrectAnswers(newAnswers);
+                              notifyParent();
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                            placeholder={`Correct answer ${index + 1}`}
+                          />
+                          {correctAnswers.length > 1 && (
+                            <button
+                              onClick={() => {
+                                const newAnswers = correctAnswers.filter((_, i) => i !== index);
+                                setCorrectAnswers(newAnswers);
+                                notifyParent();
+                              }}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-md"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      <button
+                        onClick={() => {
+                          setCorrectAnswers([...correctAnswers, '']);
+                          notifyParent();
+                        }}
+                        className="flex items-center space-x-1 px-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-md border border-blue-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <span>Add another acceptable answer</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

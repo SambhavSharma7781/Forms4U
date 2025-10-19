@@ -17,6 +17,9 @@ interface Question {
   type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES' | 'DROPDOWN';
   required: boolean;
   options: Option[];
+  // Quiz fields
+  points?: number;
+  correctAnswers?: string[];
 }
 
 interface FormData {
@@ -29,6 +32,10 @@ interface FormData {
   allowMultipleResponses?: boolean;
   showProgress?: boolean;
   confirmationMessage?: string;
+  // Quiz fields
+  isQuiz?: boolean;
+  showCorrectAnswers?: boolean;
+  releaseGrades?: boolean;
   questions: Question[];
 }
 
@@ -50,6 +57,14 @@ export default function PublicFormView() {
   const [notFound, setNotFound] = useState(false);
   const [email, setEmail] = useState('');
   const [hasSubmittedBefore, setHasSubmittedBefore] = useState(false);
+  
+  // Quiz result states
+  const [quizResults, setQuizResults] = useState<{
+    totalScore: number;
+    maxScore: number;
+    percentage: number;
+    results: { [questionId: string]: { isCorrect: boolean; pointsEarned: number } };
+  } | null>(null);
 
   // Check if this is preview mode
   const [isPreviewMode, setIsPreviewMode] = useState(false);
@@ -73,6 +88,157 @@ export default function PublicFormView() {
       submittedForms.push(formId);
       localStorage.setItem('submittedForms', JSON.stringify(submittedForms));
     }
+  };
+
+  // Smart text scoring function
+  const calculateTextScore = (userAnswer: string, correctAnswers: string[], maxPoints: number, questionType: string) => {
+    if (!userAnswer || !correctAnswers.length) {
+      return { points: 0, percentage: 0 };
+    }
+
+    const userText = userAnswer.toLowerCase().trim().replace(/\s+/g, ' ');
+    let bestMatch = 0;
+
+    for (const correctAnswer of correctAnswers) {
+      const correctText = correctAnswer.toLowerCase().trim().replace(/\s+/g, ' ');
+      
+      // Remove common punctuation for comparison
+      const cleanUser = userText.replace(/[.,!?;:"'\-()]/g, ' ').replace(/\s+/g, ' ').trim();
+      const cleanCorrect = correctText.replace(/[.,!?;:"'\-()]/g, ' ').replace(/\s+/g, ' ').trim();
+      
+      let matchPercentage = 0;
+      
+      // Exact match (100%)
+      if (cleanUser === cleanCorrect) {
+        matchPercentage = 100;
+      } else {
+        // Word-based matching for partial credit
+        let userWords = cleanUser.split(' ').filter(w => w.length > 1);
+        let correctWords = cleanCorrect.split(' ').filter(w => w.length > 1);
+        
+        if (correctWords.length === 0) continue;
+        
+        // Remove common question words that don't affect the core answer
+        const questionWords = ['what', 'is', 'are', 'define', 'explain', 'describe', 'how', 'why', 'when', 'where', 'which', 'who'];
+        const filteredCorrectWords = correctWords.filter(word => !questionWords.includes(word.toLowerCase()));
+        
+        // If we removed question words, use filtered list for scoring
+        const wordsToMatch = filteredCorrectWords.length > 0 ? filteredCorrectWords : correctWords;
+        
+        // Count matching words
+        const matchingWords = wordsToMatch.filter(word => 
+          userWords.some(userWord => 
+            userWord === word || 
+            (word.length > 3 && userWord.includes(word)) ||
+            (userWord.length > 3 && word.includes(userWord))
+          )
+        );
+        
+        // Calculate percentage based on matching words (using filtered words for scoring)
+        const wordMatchPercentage = (matchingWords.length / wordsToMatch.length) * 100;
+        
+        // Different scoring logic based on question type
+        if (questionType === 'SHORT_ANSWER') {
+          // SHORT_ANSWER: Strict - Must match ALL important words to get any points
+          if (matchingWords.length === wordsToMatch.length && wordsToMatch.length > 0) {
+            matchPercentage = 100; // Only give points if complete answer
+          } else {
+            matchPercentage = 0; // No partial credit for short answers
+          }
+        } else {
+          // PARAGRAPH: Flexible scoring with partial credit
+          if (wordMatchPercentage >= 80) {
+            matchPercentage = 100; // Excellent match
+          } else if (wordMatchPercentage >= 60) {
+            matchPercentage = 80; // Good match  
+          } else if (wordMatchPercentage >= 40) {
+            matchPercentage = 60; // Fair match
+          } else if (wordMatchPercentage >= 20) {
+            matchPercentage = 30; // Poor match
+          } else {
+            matchPercentage = 0; // Too few matching words
+          }
+        }
+      }
+      
+      bestMatch = Math.max(bestMatch, matchPercentage);
+    }
+    
+    // Calculate points based on percentage
+    const earnedPoints = Math.round((bestMatch / 100) * maxPoints * 100) / 100; // Round to 2 decimals
+    
+    return {
+      points: earnedPoints,
+      percentage: Math.round(bestMatch)
+    };
+  };
+
+  // Calculate quiz score
+  const calculateQuizScore = () => {
+    if (!formData?.isQuiz || !shuffledQuestions.length) return null;
+    
+    console.log('Calculating quiz score for questions:', shuffledQuestions);
+    console.log('User responses:', responses);
+    
+    let totalScore = 0;
+    let maxScore = 0;
+    const results: { [questionId: string]: { isCorrect: boolean; pointsEarned: number } } = {};
+    
+    shuffledQuestions.forEach(question => {
+      const userResponse = responses[question.id];
+      const questionPoints = question.points || 1;
+      maxScore += questionPoints;
+      
+      console.log(`Question ${question.id}:`, {
+        text: question.text,
+        type: question.type,
+        correctAnswers: question.correctAnswers,
+        userResponse,
+        points: questionPoints
+      });
+      
+      let isCorrect = false;
+      let pointsEarned = 0;
+      
+      if (question.type === 'MULTIPLE_CHOICE') {
+        // Single correct answer
+        isCorrect = question.correctAnswers?.includes(userResponse as string) || false;
+        pointsEarned = isCorrect ? questionPoints : 0;
+        console.log(`Multiple choice result: isCorrect=${isCorrect}, pointsEarned=${pointsEarned}`);
+      } else if (question.type === 'CHECKBOXES') {
+        // Multiple correct answers
+        const userAnswers = userResponse as string[] || [];
+        const correctAnswers = question.correctAnswers || [];
+        
+        // Check if user selected exactly the correct answers
+        isCorrect = userAnswers.length === correctAnswers.length && 
+                   userAnswers.every((ans: string) => correctAnswers.includes(ans)) &&
+                   correctAnswers.every((ans: string) => userAnswers.includes(ans));
+        pointsEarned = isCorrect ? questionPoints : 0;
+      } else if (question.type === 'SHORT_ANSWER' || question.type === 'PARAGRAPH') {
+        // Smart text matching with partial scoring
+        const result = calculateTextScore(userResponse as string, question.correctAnswers || [], questionPoints, question.type);
+        isCorrect = result.percentage >= 100;
+        pointsEarned = result.points;
+        console.log(`Text question result: ${result.percentage}% match, ${result.points}/${questionPoints} points`);
+      } else {
+        // Other question types - no scoring yet
+        isCorrect = false;
+        pointsEarned = 0;
+      }
+      
+      totalScore += pointsEarned;
+      results[question.id] = { isCorrect, pointsEarned };
+    });
+    
+    const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+    
+    return {
+      totalScore,
+      maxScore,
+      percentage,
+      results
+    };
   };
 
   // Calculate form completion progress
@@ -126,6 +292,12 @@ export default function PublicFormView() {
       
       if (data.success) {
         setFormData(data.form);
+        console.log('📋 Form loaded for quiz:', {
+          isQuiz: data.form.isQuiz,
+          showCorrectAnswers: data.form.showCorrectAnswers,
+          releaseGrades: data.form.releaseGrades,
+          formTitle: data.form.title
+        });
         
         // Handle question shuffling if enabled (but only for non-preview mode)
         if (data.form.shuffleQuestions && !isPreview) {
@@ -220,6 +392,14 @@ export default function PublicFormView() {
 
     setSubmitting(true);
     try {
+      // Calculate quiz score if this is a quiz
+      const quizScore = formData?.isQuiz ? calculateQuizScore() : null;
+      
+      // Set quiz results if available
+      if (quizScore) {
+        setQuizResults(quizScore);
+      }
+      
       // Submit responses to API
       const response = await fetch(`/api/forms/${formId}/submit`, {
         method: 'POST',
@@ -228,8 +408,24 @@ export default function PublicFormView() {
         },
         body: JSON.stringify({
           responses: responses,
-          email: formData?.collectEmail ? email : undefined
+          email: formData?.collectEmail ? email : undefined,
+          ...(quizScore && {
+            totalScore: quizScore.totalScore,
+            maxScore: quizScore.maxScore,
+            quizResults: quizScore.results
+          })
         })
+      });
+
+      console.log('🔄 Submitting form data:', {
+        responses,
+        responseKeys: Object.keys(responses),
+        responseValues: Object.values(responses),
+        quizScore: quizScore ? {
+          totalScore: quizScore.totalScore,
+          maxScore: quizScore.maxScore,
+          resultsKeys: Object.keys(quizScore.results)
+        } : 'No quiz score'
       });
 
       const result = await response.json();
@@ -384,7 +580,7 @@ export default function PublicFormView() {
   // Form not found or not published
   if (notFound || !formData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
         <div className="max-w-md mx-auto text-center bg-white p-8 rounded-lg shadow-sm border border-gray-200">
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -414,13 +610,121 @@ export default function PublicFormView() {
   // Success state
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-blue-50">
         <div className="max-w-2xl mx-auto pt-4 px-4">
           <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
             <div className="h-2 bg-blue-600"></div>
             <div className="p-8">
               <h1 className="text-4xl font-bold text-gray-900 mb-4">{formData?.title}</h1>
               <p className="text-gray-600 text-base mb-6">{confirmationMessage}</p>
+              
+              {/* Quiz notification when grades are not released immediately */}
+              {formData?.isQuiz && !formData.releaseGrades && (
+                <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="text-yellow-600">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-yellow-800">Quiz Submitted Successfully</h3>
+                      <p className="text-sm text-yellow-700 mt-1">Your quiz has been graded and results will be shared later.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Quiz Results - Only show if quiz mode AND release grades is enabled */}
+              {formData?.isQuiz && quizResults && formData.releaseGrades && (
+                <div className="mb-6 p-6 bg-blue-50 rounded-lg border border-blue-200">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Quiz Results</h2>
+                  
+                  {/* Score Display */}
+                  <div className="mb-6 p-4 bg-white rounded-lg border">
+                    <div className="text-center">
+                      <div className="text-4xl font-bold text-blue-600 mb-2">
+                        {quizResults.totalScore}/{quizResults.maxScore}
+                      </div>
+                      <div className="text-lg font-medium text-gray-700 mb-1">
+                        {quizResults.percentage}%
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {quizResults.totalScore === quizResults.maxScore 
+                          ? "Perfect Score! 🎉" 
+                          : quizResults.percentage >= 80 
+                          ? "Great Job! 👍" 
+                          : quizResults.percentage >= 60 
+                          ? "Good Effort! 👌" 
+                          : "Keep Practicing! 📚"}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Question Results - Only if showCorrectAnswers is ALSO enabled */}
+                  {formData.showCorrectAnswers && (
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-800">Answer Review</h3>
+                      {shuffledQuestions.map((question) => {
+                        const result = quizResults.results[question.id];
+                        const userResponse = responses[question.id];
+                        
+                        return (
+                          <div key={question.id} className="p-4 bg-white rounded-lg border">
+                            <div className="flex items-start justify-between mb-2">
+                              <h4 className="font-medium text-gray-900 flex-1">
+                                {question.text}
+                              </h4>
+                              <div className="flex items-center space-x-2">
+                                <span className="text-sm text-gray-600">
+                                  {result.pointsEarned}/{question.points || 1} pts
+                                </span>
+                                {result.pointsEarned === 0 ? (
+                                  <span className="text-red-600 text-sm font-medium">✗ Incorrect</span>
+                                ) : result.isCorrect ? (
+                                  <span className="text-green-600 text-sm font-medium">✓ Correct</span>
+                                ) : (
+                                  <span className="text-orange-600 text-sm font-medium">◐ Partially Correct</span>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-700">Your answer: </span>
+                                <span className={
+                                  result.pointsEarned === 0 
+                                    ? "text-red-700" 
+                                    : result.isCorrect 
+                                    ? "text-green-700" 
+                                    : "text-orange-700"
+                                }>
+                                  {Array.isArray(userResponse) 
+                                    ? userResponse.join(', ') 
+                                    : userResponse || 'No answer'}
+                                </span>
+                              </div>
+                              
+                              {!result.isCorrect && question.correctAnswers && (
+                                <div>
+                                  <span className="font-medium text-gray-700">
+                                    {result.pointsEarned > 0 ? 'Complete answer: ' : 'Correct answer: '}
+                                  </span>
+                                  <span className="text-green-700">
+                                    {Array.isArray(question.correctAnswers) 
+                                      ? question.correctAnswers.join(', ') 
+                                      : question.correctAnswers}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
               
               {/* Submit another response link - Google Forms style */}
               {formData?.allowMultipleResponses && (
@@ -431,6 +735,7 @@ export default function PublicFormView() {
                       setResponses({});
                       setEmail('');
                       setErrors({});
+                      setQuizResults(null);
                     }}
                     className="text-blue-600 hover:text-blue-800 underline text-sm font-medium transition-colors cursor-pointer"
                   >
@@ -447,7 +752,7 @@ export default function PublicFormView() {
 
   // Main form view
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-blue-50">
       <div className="max-w-2xl mx-auto py-8 px-4">
         {/* Preview Mode Header */}
         {isPreviewMode && (

@@ -83,6 +83,7 @@ export default function Form() {
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
   const [responseCount, setResponseCount] = useState(0);
   const [expandedResponse, setExpandedResponse] = useState<string | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   // Track original form data to detect changes
   const [originalFormData, setOriginalFormData] = useState<FormData | null>(null);
@@ -935,11 +936,17 @@ export default function Form() {
                       onClick={() => {
                         if (typeof window !== 'undefined') {
                           navigator.clipboard.writeText(`${window.location.origin}/forms/${formId}/view`);
+                          setLinkCopied(true);
+                          setTimeout(() => setLinkCopied(false), 2000);
                         }
                       }}
-                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      className={`text-sm font-medium transition-all duration-200 ${
+                        linkCopied 
+                          ? 'text-green-600 hover:text-green-700' 
+                          : 'text-blue-600 hover:text-blue-800'
+                      }`}
                     >
-                      📋 Copy Link
+                      {linkCopied ? '✅ Copied!' : '📋 Copy Link'}
                     </button>
                   </div>
                 </div>

@@ -29,6 +29,8 @@ export default function Dashboard() {
   const [userForms, setUserForms] = useState<UserForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [renamingFormId, setRenamingFormId] = useState<string | null>(null);
+  const [newTitle, setNewTitle] = useState<string>('');
 
   // Fetch user's forms when component loads
   useEffect(() => {
@@ -82,8 +84,46 @@ export default function Dashboard() {
   };
 
   const handleRenameForm = (formId: string) => {
-    setOpenMenuId(null);
-    // Feature coming soon
+    const form = userForms.find(f => f.id === formId);
+    if (form) {
+      setNewTitle(form.title);
+      setRenamingFormId(formId);
+      setOpenMenuId(null);
+    }
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!renamingFormId || !newTitle.trim()) return;
+
+    try {
+      const response = await fetch(`/api/forms/rename/${renamingFormId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ title: newTitle.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Update the form in the UI
+        setUserForms(userForms.map(form => 
+          form.id === renamingFormId 
+            ? { ...form, title: newTitle.trim() }
+            : form
+        ));
+        setRenamingFormId(null);
+        setNewTitle('');
+      }
+    } catch (error) {
+      // Handle error silently
+    }
+  };
+
+  const handleRenameCancel = () => {
+    setRenamingFormId(null);
+    setNewTitle('');
   };
 
   const handleOpenInNewTab = (formId: string) => {
@@ -245,8 +285,8 @@ export default function Dashboard() {
                         </div>
                         
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{form.title}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{form.title}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {new Date(form.createdAt).toLocaleDateString('en-US', {
                               month: 'short',
                               day: 'numeric'
@@ -350,6 +390,59 @@ export default function Dashboard() {
         </div>
 
       </div>
+
+      {/* Rename Modal */}
+      {renamingFormId && (
+        <div 
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-200"
+          onClick={handleRenameCancel}
+        >
+          <div 
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-200 scale-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Rename form
+              </h3>
+            </div>
+            
+            <div className="px-6 py-5">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Form title
+              </label>
+              <input
+                type="text"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 transition-all duration-200"
+                placeholder="Enter form title"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameSubmit();
+                  if (e.key === 'Escape') handleRenameCancel();
+                }}
+                autoFocus
+              />
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end space-x-3 bg-gray-50 dark:bg-gray-800 rounded-b-xl">
+              <button
+                onClick={handleRenameCancel}
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 rounded-lg transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenameSubmit}
+                disabled={!newTitle.trim()}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

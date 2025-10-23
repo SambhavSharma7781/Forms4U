@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
             // Quiz fields
             points: question.points || 1,
             correctAnswers: question.correctAnswers || [],
+            // Option settings
+            shuffleOptionsOrder: question.shuffleOptionsOrder || false,
             options: question.options
               ? {
                   create: question.options.map((option: string, optionIndex: number) => ({

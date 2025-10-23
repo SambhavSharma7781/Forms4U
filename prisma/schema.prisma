@@ -66,6 +66,9 @@ model Question {
   points             Int       @default(1)
   correctAnswers     String[]  @default([])  // For multiple choice, checkboxes
   
+  // Option settings
+  shuffleOptionsOrder Boolean   @default(false)  // Shuffle options for each respondent
+  
   options   Option[]
   answers   Answer[]
 }

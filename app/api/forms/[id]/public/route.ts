@@ -56,6 +56,8 @@ export async function GET(
           // Quiz fields
           points: question.points,
           correctAnswers: question.correctAnswers,
+          // Option settings
+          shuffleOptionsOrder: question.shuffleOptionsOrder,
           options: question.options.map(option => ({
             id: option.id,
             text: option.text

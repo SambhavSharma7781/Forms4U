@@ -12,6 +12,7 @@ interface Question {
   type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
   required: boolean;
   options?: string[];
+  shuffleOptionsOrder?: boolean;
   // Quiz fields
   points?: number;
   correctAnswers?: string[];
@@ -102,6 +103,7 @@ export default function CreateFormPage() {
     type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
     required: boolean;
     options: string[];
+    shuffleOptionsOrder?: boolean;
     points?: number;
     correctAnswers?: string[];
   }) => {
@@ -113,6 +115,7 @@ export default function CreateFormPage() {
             type: updatedData.type,
             required: updatedData.required,
             options: updatedData.options,
+            shuffleOptionsOrder: updatedData.shuffleOptionsOrder,
             points: updatedData.points,
             correctAnswers: updatedData.correctAnswers
           }
@@ -264,6 +267,7 @@ export default function CreateFormPage() {
                   initialType={q.type}
                   initialRequired={q.required}
                   initialOptions={q.options}
+                  initialShuffleOptionsOrder={q.shuffleOptionsOrder}
                   // Quiz props
                   isQuiz={formSettings.isQuiz}
                   initialPoints={q.points || 1}

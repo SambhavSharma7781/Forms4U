@@ -66,6 +66,8 @@ export async function GET(
           // Quiz fields
           points: question.points,
           correctAnswers: question.correctAnswers,
+          // Option settings
+          shuffleOptionsOrder: question.shuffleOptionsOrder,
           options: question.options.map(option => ({
             id: option.id,
             text: option.text
@@ -177,6 +179,8 @@ export async function PUT(
             // Quiz fields
             points: question.points || 1,
             correctAnswers: question.correctAnswers || [],
+            // Option settings
+            shuffleOptionsOrder: question.shuffleOptionsOrder || false,
             options: question.options
               ? {
                   create: question.options.map((option: string, optionIndex: number) => ({

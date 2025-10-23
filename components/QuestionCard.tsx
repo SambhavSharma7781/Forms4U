@@ -2,13 +2,15 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import RichTextEditor from "@/components/RichTextEditor";
 import { 
   MoreVertical, 
   Copy, 
   Trash2, 
   Plus,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Shuffle
 } from "lucide-react";
 
 type QuestionType = "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
@@ -19,6 +21,7 @@ interface QuestionCardProps {
   initialType?: QuestionType;
   initialRequired?: boolean;
   initialOptions?: string[];
+  initialShuffleOptionsOrder?: boolean;
   // Quiz props
   isQuiz?: boolean;
   initialPoints?: number;
@@ -31,6 +34,7 @@ interface QuestionCardProps {
     type: QuestionType;
     required: boolean;
     options: string[];
+    shuffleOptionsOrder?: boolean;
     points?: number;
     correctAnswers?: string[];
   }) => void;
@@ -42,6 +46,7 @@ export default function QuestionCard({
   initialType = "SHORT_ANSWER",
   initialRequired = false,
   initialOptions = [],
+  initialShuffleOptionsOrder = false,
   // Quiz props
   isQuiz = false,
   initialPoints = 1,
@@ -54,6 +59,8 @@ export default function QuestionCard({
   const [questionType, setQuestionType] = useState<QuestionType>(initialType);
   const [required, setRequired] = useState(initialRequired);
   const [isEditing, setIsEditing] = useState(!initialQuestion);
+  const [shuffleOptionsOrder, setShuffleOptionsOrder] = useState(initialShuffleOptionsOrder);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   // Quiz states
   const [points, setPoints] = useState(initialPoints);
   const [correctAnswers, setCorrectAnswers] = useState<string[]>(() => {
@@ -88,6 +95,7 @@ export default function QuestionCard({
         type: questionType,
         required,
         options: options.filter(opt => opt.trim() !== ""),
+        shuffleOptionsOrder,
         // Quiz fields
         points: isQuiz ? points : undefined,
         correctAnswers: isQuiz ? correctAnswers : undefined
@@ -98,7 +106,7 @@ export default function QuestionCard({
   // Notify parent when key data changes
   useEffect(() => {
     notifyParent();
-  }, [question, questionType, required, options, points, correctAnswers, isQuiz]);
+  }, [question, questionType, required, options, shuffleOptionsOrder, points, correctAnswers, isQuiz]);
 
   // Handle options when question type changes
   useEffect(() => {
@@ -296,14 +304,13 @@ export default function QuestionCard({
           
           {/* Question header */}
           <div className="flex items-start justify-between mb-4">
-            <div className="flex-1 mr-4">
-              <input
-                type="text"
-                value={question}
-                onChange={(e) => setQuestion(e.target.value)}
+            <div className="flex-1">
+              <RichTextEditor
+                value={question || ''}
+                onChange={(value) => setQuestion(value)}
                 placeholder="Untitled question"
                 className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
-                onFocus={() => setIsEditing(true)}
+                style={{ minHeight: '32px' }}
               />
             </div>
             
@@ -344,9 +351,71 @@ export default function QuestionCard({
                 <Trash2 className="w-4 h-4" />
               </button>
               
-              <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors">
-                <MoreVertical className="w-4 h-4" />
-              </button>
+              {/* 3-dots menu - only show for option-based questions */}
+              {(questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") && (
+                <div className="relative">
+                  <button 
+                    onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors relative z-30"
+                    title="Question Options"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                
+                {/* Dropdown Menu */}
+                {showOptionsMenu && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowOptionsMenu(false)}
+                    />
+                    
+                    {/* Menu Content */}
+                    <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-100 z-40 origin-top"
+                         style={{ 
+                           boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                           minWidth: '280px'
+                         }}>
+                      {/* Show shuffle option only for option-based questions */}
+                      {(questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") && (
+                        <div className="py-2">
+                          <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            Question Options
+                          </div>
+                          
+                          <button
+                            onClick={() => {
+                              setShuffleOptionsOrder(!shuffleOptionsOrder);
+                              setShowOptionsMenu(false);
+                            }}
+                            className="w-full flex items-center justify-between px-3 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-all duration-150 group"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className={`p-1.5 rounded-md ${shuffleOptionsOrder ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600'} transition-colors`}>
+                                <Shuffle className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="text-left">
+                                <div className="font-medium">Shuffle Options Order</div>
+                                <div className="text-xs text-gray-500 mt-0.5">Randomize option order for respondents</div>
+                              </div>
+                            </div>
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${shuffleOptionsOrder ? 'bg-blue-600 border-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
+                              {shuffleOptionsOrder && (
+                                <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                      
+                    </div>
+                  </>
+                )}
+                </div>
+              )}
             </div>
             
             {/* Required toggle */}

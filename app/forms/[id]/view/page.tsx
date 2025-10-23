@@ -17,6 +17,7 @@ interface Question {
   type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES' | 'DROPDOWN';
   required: boolean;
   options: Option[];
+  shuffleOptionsOrder?: boolean;
   // Quiz fields
   points?: number;
   correctAnswers?: string[];
@@ -299,11 +300,30 @@ export default function PublicFormView() {
           formTitle: data.form.title
         });
         
+        // Process questions with option shuffling if needed
+        const processedQuestions = data.form.questions.map((question: Question) => {
+          // For preview mode, don't shuffle anything
+          if (isPreview) {
+            return question;
+          }
+          
+          // Shuffle options if enabled for this question
+          if (question.shuffleOptionsOrder && 
+              (question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES' || question.type === 'DROPDOWN')) {
+            return {
+              ...question,
+              options: shuffleArray(question.options)
+            };
+          }
+          
+          return question;
+        });
+        
         // Handle question shuffling if enabled (but only for non-preview mode)
         if (data.form.shuffleQuestions && !isPreview) {
-          setShuffledQuestions(shuffleArray(data.form.questions));
+          setShuffledQuestions(shuffleArray(processedQuestions));
         } else {
-          setShuffledQuestions(data.form.questions);
+          setShuffledQuestions(processedQuestions);
         }
       } else {
         // Form is either not published or doesn't exist
@@ -667,9 +687,17 @@ export default function PublicFormView() {
                         return (
                           <div key={question.id} className="p-4 bg-white rounded-lg border">
                             <div className="flex items-start justify-between mb-2">
-                              <h4 className="font-medium text-gray-900 flex-1">
-                                {question.text}
-                              </h4>
+                              <h4 
+                                className="font-medium text-gray-900 flex-1 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                                dangerouslySetInnerHTML={{ __html: question.text }}
+                                onClick={(e) => {
+                                  const target = e.target as HTMLElement;
+                                  if (target.tagName === 'A') {
+                                    e.preventDefault();
+                                    window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                                  }
+                                }}
+                              />
                               <div className="flex items-center space-x-2">
                                 <span className="text-sm text-gray-600">
                                   {result.pointsEarned}/{question.points || 1} pts
@@ -808,9 +836,29 @@ export default function PublicFormView() {
               {/* Blue top line */}
               <div className="h-2 bg-blue-600"></div>
               <div className="p-6">
-                <h1 className="text-2xl font-bold text-gray-800 mb-2">{formData.title}</h1>
+                <h1 
+                  className="text-2xl font-bold text-gray-800 mb-2 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                  dangerouslySetInnerHTML={{ __html: formData.title || 'Untitled Form' }}
+                  onClick={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.tagName === 'A') {
+                      e.preventDefault();
+                      window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                />
                 {formData.description && (
-                  <p className="text-gray-600">{formData.description}</p>
+                  <div 
+                    className="text-gray-600 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                    dangerouslySetInnerHTML={{ __html: formData.description }}
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.tagName === 'A') {
+                        e.preventDefault();
+                        window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  />
                 )}
               </div>
             </div>
@@ -856,7 +904,17 @@ export default function PublicFormView() {
             <div key={question.id} className="bg-white rounded-lg shadow-sm p-6">
               <div className="mb-4">
                 <h3 className="text-lg font-medium text-gray-800 mb-1">
-                  {index + 1}. {question.text}
+                  {index + 1}. <span 
+                    className="[&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                    dangerouslySetInnerHTML={{ __html: question.text }}
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.tagName === 'A') {
+                        e.preventDefault();
+                        window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  />
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </h3>
               </div>

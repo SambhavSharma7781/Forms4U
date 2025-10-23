@@ -7,14 +7,16 @@ import Link from 'next/link';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
 import QuestionCard from '@/components/QuestionCard';
+import RichTextEditor from '@/components/RichTextEditor';
 import { navbarEvents } from '@/components/Navbar';
 
 interface Question {
   id: string;
   text: string;
-  type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES';
+  type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES' | 'DROPDOWN';
   required: boolean;
   options: { id: string; text: string; }[];
+  shuffleOptionsOrder?: boolean;
   // Quiz fields
   points?: number;
   correctAnswers?: string[];
@@ -353,7 +355,8 @@ export default function Form() {
       
       if (currentQ.text !== originalQ.text ||
           currentQ.type !== originalQ.type ||
-          currentQ.required !== originalQ.required) {
+          currentQ.required !== originalQ.required ||
+          (currentQ.shuffleOptionsOrder || false) !== (originalQ.shuffleOptionsOrder || false)) {
         return true;
       }
       
@@ -482,6 +485,7 @@ export default function Form() {
           type: q.type,
           required: q.required,
           options: q.options.map(opt => opt.text),
+          shuffleOptionsOrder: q.shuffleOptionsOrder || false,
           // Quiz fields
           points: q.points || 1,
           correctAnswers: q.correctAnswers || []
@@ -770,20 +774,20 @@ export default function Form() {
             <div className="bg-white rounded-lg border border-gray-200 mb-6">
               <div className="h-3 bg-blue-600 rounded-t-lg"></div>
               <div className="p-8">
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => updateFormTitle(e.target.value)}
-                  className="w-full text-3xl font-normal text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
+                <RichTextEditor
+                  value={formData.title || ''}
+                  onChange={(value) => updateFormTitle(value)}
                   placeholder="Untitled form"
+                  className="w-full text-3xl font-normal text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
+                  style={{ minHeight: '45px' }}
                 />
                 
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => updateFormDescription(e.target.value)}
+                <RichTextEditor
+                  value={formData.description || ''}
+                  onChange={(value) => updateFormDescription(value)}
                   placeholder="Form description"
-                  rows={2}
                   className="w-full mt-4 text-base text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 resize-none transition-colors"
+                  style={{ minHeight: '50px' }}
                 />
               </div>
             </div>
@@ -798,6 +802,7 @@ export default function Form() {
                   initialType={question.type}
                   initialRequired={question.required}
                   initialOptions={question.options?.map((opt: any) => opt.text) || []}
+                  initialShuffleOptionsOrder={question.shuffleOptionsOrder || false}
                   // Quiz props
                   isQuiz={formSettings.isQuiz}
                   initialPoints={question.points || 1}
@@ -813,6 +818,7 @@ export default function Form() {
                             text: data.question,
                             type: data.type,
                             required: data.required,
+                            shuffleOptionsOrder: data.shuffleOptionsOrder,
                             options: data.options.map((optText: string, idx: number) => ({
                               id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
                               text: optText
@@ -994,9 +1000,17 @@ export default function Form() {
                           <div className="space-y-4">
                             {response.answers.map((answer, answerIndex) => (
                               <div key={answerIndex} className="bg-white p-4 rounded-md border border-gray-200">
-                                <div className="text-sm font-medium text-gray-900 mb-2">
-                                  {answer.questionText}
-                                </div>
+                                <div 
+                                  className="text-sm font-medium text-gray-900 mb-2 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                                  dangerouslySetInnerHTML={{ __html: answer.questionText }}
+                                  onClick={(e) => {
+                                    const target = e.target as HTMLElement;
+                                    if (target.tagName === 'A') {
+                                      e.preventDefault();
+                                      window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                />
                                 <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded border">
                                   {renderAnswer(answer)}
                                 </div>

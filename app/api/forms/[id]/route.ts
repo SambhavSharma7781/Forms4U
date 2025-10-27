@@ -54,6 +54,7 @@ export async function GET(
         allowMultipleResponses: form.allowMultipleResponses,
         showProgress: form.showProgress,
         confirmationMessage: form.confirmationMessage,
+        defaultRequired: form.defaultRequired,
         // Quiz settings
         isQuiz: form.isQuiz,
         showCorrectAnswers: form.showCorrectAnswers,
@@ -63,6 +64,7 @@ export async function GET(
           text: question.text,
           type: question.type,
           required: question.required,
+          imageUrl: question.imageUrl, // Add image URL to response
           // Quiz fields
           points: question.points,
           correctAnswers: question.correctAnswers,
@@ -167,6 +169,7 @@ export async function PUT(
         allowMultipleResponses: settings?.allowMultipleResponses ?? existingForm.allowMultipleResponses,
         showProgress: settings?.showProgress ?? existingForm.showProgress,
         confirmationMessage: settings?.confirmationMessage ?? existingForm.confirmationMessage,
+        defaultRequired: settings?.defaultRequired ?? existingForm.defaultRequired,
         // Quiz settings
         isQuiz: settings?.isQuiz ?? existingForm.isQuiz,
         showCorrectAnswers: settings?.showCorrectAnswers ?? existingForm.showCorrectAnswers,
@@ -176,6 +179,7 @@ export async function PUT(
             text: question.question || question.text,
             type: question.type,
             required: question.required || false,
+            imageUrl: question.imageUrl || null, // Add image URL field
             // Quiz fields
             points: question.points || 1,
             correctAnswers: question.correctAnswers || [],

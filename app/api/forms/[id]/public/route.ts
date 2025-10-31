@@ -53,6 +53,7 @@ export async function GET(
           text: question.text,
           type: question.type,
           required: question.required,
+          imageUrl: question.imageUrl, // Add image URL field
           // Quiz fields
           points: question.points,
           correctAnswers: question.correctAnswers,

@@ -17,6 +17,7 @@ interface Question {
   required: boolean;
   options: { id: string; text: string; }[];
   shuffleOptionsOrder?: boolean;
+  imageUrl?: string; // Add image URL field
   // Quiz fields
   points?: number;
   correctAnswers?: string[];
@@ -97,6 +98,7 @@ export default function Form() {
     allowMultipleResponses: true,
     showProgress: true,
     confirmationMessage: 'Your response has been recorded.',
+    defaultRequired: false,
     // Quiz settings
     isQuiz: false,
     showCorrectAnswers: true,
@@ -110,6 +112,7 @@ export default function Form() {
     allowMultipleResponses: true,
     showProgress: true,
     confirmationMessage: 'Your response has been recorded.',
+    defaultRequired: false,
     // Quiz settings
     isQuiz: false,
     showCorrectAnswers: true,
@@ -260,6 +263,7 @@ export default function Form() {
           allowMultipleResponses: data.form.allowMultipleResponses ?? true,
           showProgress: data.form.showProgress ?? true,
           confirmationMessage: data.form.confirmationMessage || 'Your response has been recorded.',
+          defaultRequired: data.form.defaultRequired || false,
           // Quiz settings
           isQuiz: data.form.isQuiz || false,
           showCorrectAnswers: data.form.showCorrectAnswers ?? true,
@@ -356,7 +360,8 @@ export default function Form() {
       if (currentQ.text !== originalQ.text ||
           currentQ.type !== originalQ.type ||
           currentQ.required !== originalQ.required ||
-          (currentQ.shuffleOptionsOrder || false) !== (originalQ.shuffleOptionsOrder || false)) {
+          (currentQ.shuffleOptionsOrder || false) !== (originalQ.shuffleOptionsOrder || false) ||
+          (currentQ.imageUrl || '') !== (originalQ.imageUrl || '')) {
         return true;
       }
       
@@ -412,7 +417,7 @@ export default function Form() {
       id: `temp_${Date.now()}`,
       text: '',
       type: 'SHORT_ANSWER',
-      required: false,
+      required: formSettings.defaultRequired,
       options: []
     };
     setFormData({
@@ -486,6 +491,7 @@ export default function Form() {
           required: q.required,
           options: q.options.map(opt => opt.text),
           shuffleOptionsOrder: q.shuffleOptionsOrder || false,
+          imageUrl: q.imageUrl, // Add image URL to the payload
           // Quiz fields
           points: q.points || 1,
           correctAnswers: q.correctAnswers || []
@@ -803,6 +809,7 @@ export default function Form() {
                   initialRequired={question.required}
                   initialOptions={question.options?.map((opt: any) => opt.text) || []}
                   initialShuffleOptionsOrder={question.shuffleOptionsOrder || false}
+                  initialImageUrl={question.imageUrl || ""}
                   // Quiz props
                   isQuiz={formSettings.isQuiz}
                   initialPoints={question.points || 1}
@@ -819,6 +826,7 @@ export default function Form() {
                             type: data.type,
                             required: data.required,
                             shuffleOptionsOrder: data.shuffleOptionsOrder,
+                            imageUrl: data.imageUrl, // Add image URL to the update
                             options: data.options.map((optText: string, idx: number) => ({
                               id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
                               text: optText
@@ -1105,6 +1113,28 @@ export default function Form() {
                       <span
                         className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                           formSettings.showProgress ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Make Questions Required by Default */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <label className="text-sm font-medium text-gray-700">Make Questions Required by Default</label>
+                      <p className="text-sm text-gray-500 mt-1">
+                        New questions will be marked as required automatically. You can still make individual questions optional later.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setFormSettings(prev => ({ ...prev, defaultRequired: !prev.defaultRequired }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        formSettings.defaultRequired ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formSettings.defaultRequired ? 'translate-x-6' : 'translate-x-1'
                         }`}
                       />
                     </button>

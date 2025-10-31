@@ -18,6 +18,7 @@ interface Question {
   required: boolean;
   options: Option[];
   shuffleOptionsOrder?: boolean;
+  imageUrl?: string; // Add image URL field
   // Quiz fields
   points?: number;
   correctAnswers?: string[];
@@ -687,18 +688,33 @@ export default function PublicFormView() {
                         return (
                           <div key={question.id} className="p-4 bg-white rounded-lg border">
                             <div className="flex items-start justify-between mb-2">
-                              <h4 
-                                className="font-medium text-gray-900 flex-1 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
-                                dangerouslySetInnerHTML={{ __html: question.text }}
-                                onClick={(e) => {
-                                  const target = e.target as HTMLElement;
-                                  if (target.tagName === 'A') {
-                                    e.preventDefault();
-                                    window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
-                                  }
-                                }}
-                              />
-                              <div className="flex items-center space-x-2">
+                              <div className="flex-1">
+                                <h4 
+                                  className="font-medium text-gray-900 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                                  dangerouslySetInnerHTML={{ __html: question.text }}
+                                  onClick={(e) => {
+                                    const target = e.target as HTMLElement;
+                                    if (target.tagName === 'A') {
+                                      e.preventDefault();
+                                      window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                />
+                                
+                                {/* Display Question Image in Quiz Results */}
+                                {question.imageUrl && (
+                                  <div className="mt-2">
+                                    <img 
+                                      src={question.imageUrl} 
+                                      alt="Question image" 
+                                      className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                                      style={{ maxHeight: '300px' }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center space-x-2 ml-4">
                                 <span className="text-sm text-gray-600">
                                   {result.pointsEarned}/{question.points || 1} pts
                                 </span>
@@ -917,6 +933,18 @@ export default function PublicFormView() {
                   />
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </h3>
+                
+                {/* Display Question Image */}
+                {question.imageUrl && (
+                  <div className="mb-4">
+                    <img 
+                      src={question.imageUrl} 
+                      alt="Question image" 
+                      className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                      style={{ maxHeight: '400px' }}
+                    />
+                  </div>
+                )}
               </div>
               
               {renderQuestion(question)}

@@ -44,6 +44,7 @@ model Form {
   allowMultipleResponses Boolean    @default(true)
   showProgress           Boolean    @default(true)
   confirmationMessage    String     @default("Your response has been recorded.")
+  defaultRequired        Boolean    @default(false)
   
   // Quiz Settings
   isQuiz                 Boolean    @default(false)
@@ -61,6 +62,9 @@ model Question {
   required  Boolean      @default(false)
   formId    String       @db.ObjectId
   form      Form         @relation(fields: [formId], references: [id])
+  
+  // Image field for question
+  imageUrl  String?      // Optional image URL for the question
   
   // Quiz fields
   points             Int       @default(1)

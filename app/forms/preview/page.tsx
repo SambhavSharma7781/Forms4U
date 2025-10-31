@@ -15,6 +15,7 @@ interface Question {
   type: string;
   required: boolean;
   options: Option[];
+  imageUrl?: string; // Add image URL field
 }
 
 interface PreviewFormData {
@@ -221,6 +222,18 @@ export default function FormPreview() {
                   {index + 1}. {question.text}
                   {question.required && <span className="text-red-500 ml-1">*</span>}
                 </h3>
+                
+                {/* Display Question Image */}
+                {question.imageUrl && (
+                  <div className="mt-3">
+                    <img 
+                      src={question.imageUrl} 
+                      alt="Question image" 
+                      className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                      style={{ maxHeight: '400px' }}
+                    />
+                  </div>
+                )}
               </div>
               
               {renderQuestion(question)}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import RichTextEditor from "@/components/RichTextEditor";
+import ImageUpload from "@/components/ImageUpload";
 import { 
   MoreVertical, 
   Copy, 
@@ -22,6 +23,7 @@ interface QuestionCardProps {
   initialRequired?: boolean;
   initialOptions?: string[];
   initialShuffleOptionsOrder?: boolean;
+  initialImageUrl?: string; // Add image URL prop
   // Quiz props
   isQuiz?: boolean;
   initialPoints?: number;
@@ -35,6 +37,7 @@ interface QuestionCardProps {
     required: boolean;
     options: string[];
     shuffleOptionsOrder?: boolean;
+    imageUrl?: string; // Add image URL to update data
     points?: number;
     correctAnswers?: string[];
   }) => void;
@@ -47,6 +50,7 @@ export default function QuestionCard({
   initialRequired = false,
   initialOptions = [],
   initialShuffleOptionsOrder = false,
+  initialImageUrl = "", // Add image URL prop with default empty string
   // Quiz props
   isQuiz = false,
   initialPoints = 1,
@@ -61,6 +65,7 @@ export default function QuestionCard({
   const [isEditing, setIsEditing] = useState(!initialQuestion);
   const [shuffleOptionsOrder, setShuffleOptionsOrder] = useState(initialShuffleOptionsOrder);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [imageUrl, setImageUrl] = useState(initialImageUrl); // Add image state
   // Quiz states
   const [points, setPoints] = useState(initialPoints);
   const [correctAnswers, setCorrectAnswers] = useState<string[]>(() => {
@@ -96,6 +101,7 @@ export default function QuestionCard({
         required,
         options: options.filter(opt => opt.trim() !== ""),
         shuffleOptionsOrder,
+        imageUrl: imageUrl || undefined, // Add image URL to update data
         // Quiz fields
         points: isQuiz ? points : undefined,
         correctAnswers: isQuiz ? correctAnswers : undefined
@@ -103,10 +109,10 @@ export default function QuestionCard({
     }
   };
 
-  // Notify parent when key data changes
+  // Notify parent when key data changes (including imageUrl)
   useEffect(() => {
     notifyParent();
-  }, [question, questionType, required, options, shuffleOptionsOrder, points, correctAnswers, isQuiz]);
+  }, [question, questionType, required, options, shuffleOptionsOrder, imageUrl, points, correctAnswers, isQuiz]);
 
   // Handle options when question type changes
   useEffect(() => {
@@ -120,6 +126,15 @@ export default function QuestionCard({
       }
     }
   }, [questionType]);
+
+  // Image handler functions
+  const handleImageUpload = (newImageUrl: string) => {
+    setImageUrl(newImageUrl); // Update image state when new image is uploaded
+  };
+
+  const handleImageRemove = () => {
+    setImageUrl(''); // Clear image state when image is removed
+  };
 
   const questionTypes = [
     { value: "SHORT_ANSWER", label: "Short answer" },
@@ -311,6 +326,13 @@ export default function QuestionCard({
                 placeholder="Untitled question"
                 className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
                 style={{ minHeight: '32px' }}
+              />
+              
+              {/* Image Upload Component */}
+              <ImageUpload
+                imageUrl={imageUrl}
+                onImageUpload={handleImageUpload}
+                onImageRemove={handleImageRemove}
               />
             </div>
             

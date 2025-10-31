@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
         allowMultipleResponses: settings?.allowMultipleResponses ?? true,
         showProgress: settings?.showProgress ?? true,
         confirmationMessage: settings?.confirmationMessage || 'Your response has been recorded.',
+        defaultRequired: settings?.defaultRequired || false,
         // Quiz settings
         isQuiz: settings?.isQuiz || false,
         showCorrectAnswers: settings?.showCorrectAnswers ?? true,
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
             text: question.question || question.text, // Handle both properties
             type: question.type,
             required: question.required || false,
+            imageUrl: question.imageUrl || null, // Add image URL field
             // Quiz fields
             points: question.points || 1,
             correctAnswers: question.correctAnswers || [],

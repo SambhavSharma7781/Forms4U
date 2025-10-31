@@ -13,6 +13,7 @@ interface Question {
   required: boolean;
   options?: string[];
   shuffleOptionsOrder?: boolean;
+  imageUrl?: string; // Add image URL field
   // Quiz fields
   points?: number;
   correctAnswers?: string[];
@@ -41,6 +42,7 @@ export default function CreateFormPage() {
     allowMultipleResponses: true,
     showProgress: true,
     confirmationMessage: 'Your response has been recorded.',
+    defaultRequired: false,
     // Quiz settings
     isQuiz: false,
     showCorrectAnswers: true,
@@ -71,7 +73,7 @@ export default function CreateFormPage() {
       id: Date.now().toString(),
       question: "",
       type: "SHORT_ANSWER",
-      required: false
+      required: formSettings.defaultRequired
     };
     setQuestions([...questions, newQuestion]);
   };
@@ -104,6 +106,7 @@ export default function CreateFormPage() {
     required: boolean;
     options: string[];
     shuffleOptionsOrder?: boolean;
+    imageUrl?: string; // Add image URL field
     points?: number;
     correctAnswers?: string[];
   }) => {
@@ -116,6 +119,7 @@ export default function CreateFormPage() {
             required: updatedData.required,
             options: updatedData.options,
             shuffleOptionsOrder: updatedData.shuffleOptionsOrder,
+            imageUrl: updatedData.imageUrl, // Add image URL to the update
             points: updatedData.points,
             correctAnswers: updatedData.correctAnswers
           }
@@ -133,7 +137,8 @@ export default function CreateFormPage() {
         text: q.question,
         type: q.type,
         required: q.required,
-        options: q.options || []
+        options: q.options || [],
+        imageUrl: q.imageUrl // Add image URL to preview data
       }))
     };
     
@@ -268,6 +273,7 @@ export default function CreateFormPage() {
                   initialRequired={q.required}
                   initialOptions={q.options}
                   initialShuffleOptionsOrder={q.shuffleOptionsOrder}
+                  initialImageUrl={q.imageUrl || ""}
                   // Quiz props
                   isQuiz={formSettings.isQuiz}
                   initialPoints={q.points || 1}
@@ -345,6 +351,28 @@ export default function CreateFormPage() {
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                         formSettings.showProgress ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Make Questions Required by Default */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <label className="text-sm font-medium text-gray-700">Make Questions Required by Default</label>
+                    <p className="text-sm text-gray-500 mt-1">
+                      New questions will be marked as required automatically. You can still make individual questions optional later.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setFormSettings(prev => ({ ...prev, defaultRequired: !prev.defaultRequired }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      formSettings.defaultRequired ? 'bg-blue-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        formSettings.defaultRequired ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
                   </button>

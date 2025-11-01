@@ -24,6 +24,7 @@ export default function CreateFormPage() {
   const [formTitle, setFormTitle] = useState("Untitled form");
   const [formDescription, setFormDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: "1",
@@ -157,12 +158,23 @@ export default function CreateFormPage() {
       return;
     }
 
+    // Validate and clean questions before saving
+    const validQuestions = questions.filter(q => q.question.trim() !== '').map(q => ({
+      ...q,
+      options: q.options?.filter(opt => opt.trim() !== '') || []
+    }));
+
+    if (validQuestions.length === 0) {
+      alert('Please add at least one question with text');
+      return;
+    }
+
     setSaving(true);
     try {
       const formData = {
         title: formTitle,
         description: formDescription,
-        questions: questions,
+        questions: validQuestions,
         published: published,
         settings: formSettings
       };
@@ -182,9 +194,12 @@ export default function CreateFormPage() {
           // Redirect to home page only when publishing
           window.location.href = '/';
         } else {
-          // Stay on the page when saving draft
+          // Show saved animation for draft
+          setSaved(true);
+          setTimeout(() => setSaved(false), 2000); // Hide after 2 seconds
         }
       } else {
+        alert('Error saving form: ' + (result.message || 'Unknown error'));
       }
     } catch (error) {
       console.error('Save error:', error);
@@ -546,9 +561,25 @@ export default function CreateFormPage() {
               variant="outline" 
               onClick={() => handleSaveForm(false)}
               disabled={saving}
-              className="disabled:opacity-50"
+              className={`disabled:opacity-50 transition-all duration-200 ${
+                saved ? 'bg-green-100 border-green-300 text-green-700' : ''
+              }`}
             >
-              {saving ? 'Saving...' : 'Save Draft'}
+              {saving ? (
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span>Saving...</span>
+                </div>
+              ) : saved ? (
+                <div className="flex items-center space-x-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  <span>Saved</span>
+                </div>
+              ) : (
+                'Save Draft'
+              )}
             </Button>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import FloatingActionButton from "@/components/FloatingActionButton";
 
 interface UserForm {
   id: string;
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [renamingFormId, setRenamingFormId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState<string>('');
+  const [showFab, setShowFab] = useState(false);
 
   // Fetch user's forms when component loads
   useEffect(() => {
@@ -54,6 +56,19 @@ export default function Dashboard() {
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [openMenuId]);
+
+  // Show FAB when 'New form' card is scrolled out of view
+  useEffect(() => {
+    const newFormSection = document.getElementById('new-form-section');
+    const handleScroll = () => {
+      if (!newFormSection) return;
+      const rect = newFormSection.getBoundingClientRect();
+      setShowFab(rect.bottom < 0);
+    };
+    window.addEventListener('scroll', handleScroll);
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const fetchUserForms = async () => {
     try {
@@ -155,7 +170,7 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         
         {/* Start a new form section */}
-        <div className="mb-12">
+        <div className="mb-12" id="new-form-section">
           <h2 className="text-lg font-medium text-gray-700 mb-4">Start a new form</h2>
           <div className="w-48">
             <button 
@@ -443,6 +458,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Floating Action Button for Create New Form */}
+      {showFab && <FloatingActionButton />}
     </div>
   );
 }

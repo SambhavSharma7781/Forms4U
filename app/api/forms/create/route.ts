@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
         questions: {
           create: questions.map((question: any, index: number) => ({
             text: question.question || question.text, // Handle both properties
+            description: question.description || null, // Add description field
             type: question.type,
             required: question.required || false,
             imageUrl: question.imageUrl || null, // Add image URL field

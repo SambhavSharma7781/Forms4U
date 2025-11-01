@@ -9,6 +9,7 @@ import { navbarEvents } from "@/components/Navbar";
 interface Question {
   id: string;
   question: string;
+  description?: string; // Add description field for helper text
   type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
   required: boolean;
   options?: string[];
@@ -102,6 +103,7 @@ export default function CreateFormPage() {
   const handleUpdateQuestion = (updatedData: {
     id: string;
     question: string;
+    description?: string; // Add description field
     type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
     required: boolean;
     options: string[];
@@ -115,6 +117,7 @@ export default function CreateFormPage() {
         ? { 
             ...q, 
             question: updatedData.question,
+            description: updatedData.description, // Add description to the update
             type: updatedData.type,
             required: updatedData.required,
             options: updatedData.options,
@@ -269,6 +272,7 @@ export default function CreateFormPage() {
                   key={q.id}
                   id={q.id}
                   initialQuestion={q.question}
+                  initialDescription={q.description || ""} // Pass description to QuestionCard
                   initialType={q.type}
                   initialRequired={q.required}
                   initialOptions={q.options}

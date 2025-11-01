@@ -13,6 +13,7 @@ import { navbarEvents } from '@/components/Navbar';
 interface Question {
   id: string;
   text: string;
+  description?: string; // Add description field for helper text
   type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES' | 'DROPDOWN';
   required: boolean;
   options: { id: string; text: string; }[];
@@ -332,21 +333,27 @@ export default function Form() {
 
   // Check if form has unsaved changes
   const hasUnsavedChanges = () => {
-    if (!originalFormData) return false;
+    if (!originalFormData) {
+      console.log('📝 No originalFormData - returning false');
+      return false;
+    }
     
     // Compare title and description
     if (formData.title !== originalFormData.title || 
         formData.description !== originalFormData.description) {
+      console.log('📝 Title/Description changed');
       return true;
     }
     
     // Compare form settings (including quiz settings)
     if (hasUnsavedSettingsChanges()) {
+      console.log('📝 Settings changed');
       return true;
     }
     
     // Compare questions count
     if (formData.questions.length !== originalFormData.questions.length) {
+      console.log('📝 Questions count changed');
       return true;
     }
     
@@ -355,13 +362,26 @@ export default function Form() {
       const currentQ = formData.questions[i];
       const originalQ = originalFormData.questions[i];
       
-      if (!originalQ) return true; // New question
+      if (!originalQ) {
+        console.log('📝 New question detected');
+        return true; // New question
+      }
       
-      if (currentQ.text !== originalQ.text ||
-          currentQ.type !== originalQ.type ||
+      if (currentQ.text !== originalQ.text) {
+        console.log('📝 Question text changed:', currentQ.text, '!=', originalQ.text);
+        return true;
+      }
+      
+      if ((currentQ.description || '') !== (originalQ.description || '')) {
+        console.log('📝 Question description changed:', currentQ.description, '!=', originalQ.description);
+        return true;
+      }
+      
+      if (currentQ.type !== originalQ.type ||
           currentQ.required !== originalQ.required ||
           (currentQ.shuffleOptionsOrder || false) !== (originalQ.shuffleOptionsOrder || false) ||
           (currentQ.imageUrl || '') !== (originalQ.imageUrl || '')) {
+        console.log('📝 Other question properties changed');
         return true;
       }
       
@@ -393,6 +413,7 @@ export default function Form() {
       }
     }
     
+    console.log('📝 No changes detected');
     return false;
   };
 
@@ -486,7 +507,10 @@ export default function Form() {
         description: formData.description,
         published: publishedStatus,
         questions: formData.questions.map(q => ({
+          id: q.id, // Include question ID for existing questions
           question: q.text, // API expects 'question' field
+          text: q.text, // Also send as 'text' for compatibility
+          description: q.description, // Add description to the payload
           type: q.type,
           required: q.required,
           options: q.options.map(opt => opt.text),
@@ -509,8 +533,13 @@ export default function Form() {
         }
       };
       
-      const url = isExistingForm ? `/api/forms/${formId}` : '/api/forms/create';
+      console.log('🚀 SAVING FORM - Full payload:', JSON.stringify(payload, null, 2));
+      console.log('🚀 Questions with descriptions:', payload.questions.map(q => ({ id: q.id, text: q.text, description: q.description })));
+      
+      const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
+      
+      console.log('🚀 API URL:', url, 'Method:', method);
       
       const response = await fetch(url, {
         method,
@@ -519,6 +548,8 @@ export default function Form() {
         },
         body: JSON.stringify(payload),
       });
+      
+      console.log('🚀 API Response status:', response.status);
 
       const data = await response.json();
       
@@ -805,6 +836,7 @@ export default function Form() {
                   key={question.id}
                   id={question.id}
                   initialQuestion={question.text}
+                  initialDescription={question.description || ""} // Pass description to QuestionCard
                   initialType={question.type}
                   initialRequired={question.required}
                   initialOptions={question.options?.map((opt: any) => opt.text) || []}
@@ -817,12 +849,17 @@ export default function Form() {
                   onDelete={() => deleteQuestion(question.id)}
                   onDuplicate={() => duplicateQuestion(question.id)}
                   onUpdate={(data) => {
+                    console.log('🟡 QuestionCard onUpdate called!');
+                    console.log('🟡 Data received:', data);
+                    console.log('🟡 Description changed from:', question.description, 'to:', data.description);
+                    
                     // Update the question with new data
                     const updatedQuestions = formData.questions.map((q: any) =>
                       q.id === question.id
                         ? {
                             ...q,
                             text: data.question,
+                            description: data.description, // ✅ ADD THIS - WAS MISSING!
                             type: data.type,
                             required: data.required,
                             shuffleOptionsOrder: data.shuffleOptionsOrder,
@@ -837,6 +874,8 @@ export default function Form() {
                           }
                         : q
                     );
+                    
+                    console.log('🟡 Updated formData with description');
                     setFormData({ ...formData, questions: updatedQuestions });
                   }}
                 />
@@ -864,7 +903,12 @@ export default function Form() {
               
               {/* Save Button */}
               <button
-                onClick={() => saveForm()} // No parameter - will preserve current published status
+                onClick={() => {
+                  console.log('🔵 Save button clicked!');
+                  console.log('🔵 hasUnsavedChanges():', hasUnsavedChanges());
+                  console.log('🔵 isExistingForm:', isExistingForm);
+                  saveForm();
+                }}
                 disabled={saving || (!hasUnsavedChanges() && isExistingForm)}
                 className={`inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
                   hasUnsavedChanges() || !isExistingForm
@@ -872,12 +916,16 @@ export default function Form() {
                     : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
-                {saving 
-                  ? 'Saving...' 
-                  : hasUnsavedChanges() || !isExistingForm
-                    ? (formData.published ? 'Save Changes' : 'Save Draft')
-                    : 'No Changes'
-                }
+                {(() => {
+                  const hasChanges = hasUnsavedChanges();
+                  console.log('🟢 Button render - hasChanges:', hasChanges, 'isExistingForm:', isExistingForm);
+                  
+                  if (saving) return 'Saving...';
+                  if (hasChanges || !isExistingForm) {
+                    return formData.published ? 'Save Changes' : 'Save Draft';
+                  }
+                  return 'No Changes';
+                })()}
               </button>
             </div>
           </>

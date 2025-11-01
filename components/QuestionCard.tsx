@@ -19,6 +19,7 @@ type QuestionType = "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOX
 interface QuestionCardProps {
   id?: string;
   initialQuestion?: string;
+  initialDescription?: string; // Add description prop
   initialType?: QuestionType;
   initialRequired?: boolean;
   initialOptions?: string[];
@@ -33,6 +34,7 @@ interface QuestionCardProps {
   onUpdate?: (data: {
     id: string;
     question: string;
+    description?: string; // Add description to update data
     type: QuestionType;
     required: boolean;
     options: string[];
@@ -46,6 +48,7 @@ interface QuestionCardProps {
 export default function QuestionCard({
   id,
   initialQuestion = "",
+  initialDescription = "", // Add description prop with default empty string
   initialType = "SHORT_ANSWER",
   initialRequired = false,
   initialOptions = [],
@@ -60,11 +63,14 @@ export default function QuestionCard({
   onUpdate
 }: QuestionCardProps) {
   const [question, setQuestion] = useState(initialQuestion);
+  const [description, setDescription] = useState(initialDescription); // Add description state
+  const [showDescription, setShowDescription] = useState(!!initialDescription); // Show description input if it has value
   const [questionType, setQuestionType] = useState<QuestionType>(initialType);
   const [required, setRequired] = useState(initialRequired);
   const [isEditing, setIsEditing] = useState(!initialQuestion);
   const [shuffleOptionsOrder, setShuffleOptionsOrder] = useState(initialShuffleOptionsOrder);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<'top' | 'bottom'>('bottom'); // Track menu position
   const [imageUrl, setImageUrl] = useState(initialImageUrl); // Add image state
   // Quiz states
   const [points, setPoints] = useState(initialPoints);
@@ -97,6 +103,7 @@ export default function QuestionCard({
       onUpdate({
         id,
         question,
+        description: description || undefined, // Add description to update data
         type: questionType,
         required,
         options: options.filter(opt => opt.trim() !== ""),
@@ -109,10 +116,10 @@ export default function QuestionCard({
     }
   };
 
-  // Notify parent when key data changes (including imageUrl)
+  // Notify parent when key data changes (including imageUrl and description)
   useEffect(() => {
     notifyParent();
-  }, [question, questionType, required, options, shuffleOptionsOrder, imageUrl, points, correctAnswers, isQuiz]);
+  }, [question, description, questionType, required, options, shuffleOptionsOrder, imageUrl, points, correctAnswers, isQuiz]);
 
   // Handle options when question type changes
   useEffect(() => {
@@ -134,6 +141,22 @@ export default function QuestionCard({
 
   const handleImageRemove = () => {
     setImageUrl(''); // Clear image state when image is removed
+  };
+
+  // Handle menu positioning to avoid overflow
+  const handleMenuToggle = (event: React.MouseEvent) => {
+    const buttonRect = (event.target as HTMLElement).getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+    const menuHeight = 300; // Approximate menu height
+    
+    // If there's not enough space below, show menu above
+    if (buttonRect.bottom + menuHeight > windowHeight) {
+      setMenuPosition('top');
+    } else {
+      setMenuPosition('bottom');
+    }
+    
+    setShowOptionsMenu(!showOptionsMenu);
   };
 
   const questionTypes = [
@@ -269,9 +292,17 @@ export default function QuestionCard({
       case "DROPDOWN":
         return (
           <div className="mt-6">
-            <select disabled className="w-full border border-gray-300 rounded p-2 text-gray-400 text-sm bg-white">
-              <option>Choose</option>
-            </select>
+            <div className="relative">
+              <select disabled className="w-full appearance-none border border-gray-300 rounded-md px-4 py-3 text-gray-500 text-sm bg-gray-50 cursor-not-allowed shadow-sm">
+                <option>Choose an option</option>
+              </select>
+              {/* Custom dropdown arrow for disabled select */}
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
             <div className="mt-4 space-y-2">
               {options.map((option, index) => (
                 <div key={index} className="flex items-center space-x-3">
@@ -328,6 +359,17 @@ export default function QuestionCard({
                 style={{ minHeight: '32px' }}
               />
               
+              {/* Description input - Shows when user enables it from 3-dot menu */}
+              {showDescription && (
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Add description"
+                  rows={2}
+                  className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 mt-2 transition-colors resize-none"
+                />
+              )}
+              
               {/* Image Upload Component */}
               <ImageUpload
                 imageUrl={imageUrl}
@@ -336,18 +378,26 @@ export default function QuestionCard({
               />
             </div>
             
-            {/* Question type selector */}
-            <select
-              value={questionType}
-              onChange={(e) => handleTypeChange(e.target.value as QuestionType)}
-              className="border border-gray-300 rounded px-3 py-1 text-sm bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-            >
-              {questionTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </select>
+            {/* Question type selector - Professional styling */}
+            <div className="relative">
+              <select
+                value={questionType}
+                onChange={(e) => handleTypeChange(e.target.value as QuestionType)}
+                className="appearance-none bg-white border border-gray-300 rounded-md px-4 py-2 pr-8 text-sm text-gray-700 hover:border-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 outline-none cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+              >
+                {questionTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+              {/* Custom dropdown arrow */}
+              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Question input area */}
@@ -373,16 +423,15 @@ export default function QuestionCard({
                 <Trash2 className="w-4 h-4" />
               </button>
               
-              {/* 3-dots menu - only show for option-based questions */}
-              {(questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") && (
-                <div className="relative">
-                  <button 
-                    onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors relative z-30"
-                    title="Question Options"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
+              {/* 3-dots menu - now available for all question types */}
+              <div className="relative">
+                <button 
+                  onClick={handleMenuToggle}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors relative z-30"
+                  title="Question Options"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
                 
                 {/* Dropdown Menu */}
                 {showOptionsMenu && (
@@ -393,8 +442,12 @@ export default function QuestionCard({
                       onClick={() => setShowOptionsMenu(false)}
                     />
                     
-                    {/* Menu Content */}
-                    <div className="absolute left-1/2 transform -translate-x-1/2 top-full mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-100 z-40 origin-top"
+                    {/* Menu Content - Smart positioning to avoid overflow */}
+                    <div className={`absolute right-0 w-72 bg-white rounded-lg shadow-xl border border-gray-100 z-40 max-h-96 overflow-y-auto ${
+                      menuPosition === 'top' 
+                        ? 'bottom-full mb-2 origin-bottom-right' 
+                        : 'top-full mt-2 origin-top-right'
+                    }`}
                          style={{ 
                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
                            minWidth: '280px'
@@ -433,11 +486,44 @@ export default function QuestionCard({
                         </div>
                       )}
                       
+                      {/* Description Option - Available for all question types */}
+                      <div className="py-2 border-t border-gray-100">
+                        <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Additional Fields
+                        </div>
+                        
+                        <button
+                          onClick={() => {
+                            setShowDescription(!showDescription);
+                            setShowOptionsMenu(false);
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-all duration-150 group"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={`p-1.5 rounded-md ${showDescription ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600'} transition-colors`}>
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <div className="font-medium">Description</div>
+                              <div className="text-xs text-gray-500 mt-0.5">Add helper text for this question</div>
+                            </div>
+                          </div>
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${showDescription ? 'bg-blue-600 border-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
+                            {showDescription && (
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      </div>
+                      
                     </div>
                   </>
                 )}
-                </div>
-              )}
+              </div>
             </div>
             
             {/* Required toggle */}

@@ -20,6 +20,12 @@ export async function PUT(
     const { id: formId } = await params;
     const body = await request.json();
     const { title, description, questions, published = false, acceptingResponses = true } = body;
+    
+    console.log('🔴 API UPDATE - Received questions:', questions.map((q: any) => ({ 
+      id: q.id, 
+      text: q.text || q.question, 
+      description: q.description 
+    })));
 
     // Verify form ownership
     const existingForm = await prisma.form.findFirst({
@@ -76,6 +82,7 @@ export async function PUT(
           const createdQuestion = await tx.question.create({
             data: {
               text: question.text,
+              description: question.description || null, // Add description field
               type: question.type,
               required: question.required,
               formId: formId
@@ -142,6 +149,7 @@ export async function PUT(
                 where: { id: existingQuestion.id },
                 data: {
                   text: newQuestion.text,
+                  description: newQuestion.description || null, // Add description field
                   type: newQuestion.type,
                   required: newQuestion.required
                 }
@@ -158,7 +166,7 @@ export async function PUT(
                 if (newQuestion.options.length > 0) {
                   await tx.option.createMany({
                     data: newQuestion.options.map((option: any) => ({
-                      text: option.text,
+                      text: typeof option === 'string' ? option : option.text,
                       questionId: existingQuestion.id
                     }))
                   });
@@ -171,6 +179,7 @@ export async function PUT(
             const createdQuestion = await tx.question.create({
               data: {
                 text: newQuestion.text,
+                description: newQuestion.description || null, // Add description field
                 type: newQuestion.type,
                 required: newQuestion.required,
                 formId: formId

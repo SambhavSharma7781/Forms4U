@@ -62,6 +62,7 @@ export async function GET(
         questions: form.questions.map(question => ({
           id: question.id,
           text: question.text,
+          description: question.description, // <-- Add description field
           type: question.type,
           required: question.required,
           imageUrl: question.imageUrl, // Add image URL to response

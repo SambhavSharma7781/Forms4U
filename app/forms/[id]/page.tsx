@@ -88,6 +88,7 @@ export default function Form() {
   const [responseCount, setResponseCount] = useState(0);
   const [expandedResponse, setExpandedResponse] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Track original form data to detect changes
   const [originalFormData, setOriginalFormData] = useState<FormData | null>(null);
@@ -937,11 +938,7 @@ export default function Form() {
             {/* Response Stats */}
             <div className="bg-white rounded-lg border border-gray-200 mb-6 p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-medium text-gray-900">Form Responses</h2>
-                  <p className="text-gray-600 mt-1">Submitted responses for "{formData.title}"</p>
-                </div>
-                <div className="flex items-center space-x-6">
+                <div className="flex items-center space-x-4">
                   {formData.published && (
                     <div className="flex items-center space-x-3">
                       <span className="text-sm text-gray-600">Accepting responses:</span>
@@ -965,15 +962,76 @@ export default function Form() {
                       </span>
                     </div>
                   )}
-                  <div className="text-center">
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-3">
                     <div className="flex items-center space-x-2">
                       <div className="text-2xl font-bold text-blue-600">{responseCount}</div>
                       {loadingResponses && (
                         <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
                       )}
                     </div>
-                    <div className="text-sm text-gray-500">Response{responseCount === 1 ? '' : 's'}</div>
+                    <div className="text-lg font-medium text-gray-700">Total Response{responseCount === 1 ? '' : 's'}</div>
                   </div>
+                  
+                  {/* 3-dot menu for delete all responses */}
+                  {responseCount > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === 'responses-menu' ? null : 'responses-menu');
+                        }}
+                        className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" />
+                        </svg>
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {openMenuId === 'responses-menu' && (
+                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20">
+                          <div className="py-1">
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(null);
+                                
+                                if (confirm(`Are you sure you want to delete all ${responseCount} responses? This action cannot be undone.`)) {
+                                  try {
+                                    const response = await fetch(`/api/forms/${formId}/responses`, {
+                                      method: 'DELETE'
+                                    });
+                                    
+                                    if (response.ok) {
+                                      // Update UI
+                                      setResponseCount(0);
+                                      setResponseData(null);
+                                      // Refresh the responses data
+                                      fetchResponses();
+                                      fetchResponseCount();
+                                    } else {
+                                      alert('Failed to delete responses');
+                                    }
+                                  } catch (error) {
+                                    console.error('Error deleting responses:', error);
+                                    alert('Failed to delete responses');
+                                  }
+                                }
+                              }}
+                              className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              <span>Delete all responses</span>
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

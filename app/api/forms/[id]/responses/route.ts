@@ -80,3 +80,69 @@ export async function GET(
     );
   }
 }
+
+// DELETE: Delete all responses for a form (owner only)
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const authResult = await auth();
+    const userId = authResult.userId;
+    
+    if (!userId) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    const { id: formId } = await params;
+
+    // First verify that user owns this form
+    const form = await prisma.form.findFirst({
+      where: {
+        id: formId,
+        createdBy: userId // Ensure user owns this form
+      }
+    });
+
+    if (!form) {
+      return NextResponse.json(
+        { success: false, error: 'Form not found or access denied' },
+        { status: 404 }
+      );
+    }
+
+    // Delete all responses and their answers for this form
+    await prisma.$transaction(async (tx) => {
+      // First, delete all answers for responses of this form
+      await tx.answer.deleteMany({
+        where: {
+          response: {
+            formId: formId
+          }
+        }
+      });
+
+      // Then, delete all responses for this form
+      await tx.response.deleteMany({
+        where: {
+          formId: formId
+        }
+      });
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: 'All responses deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting responses:', error);
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

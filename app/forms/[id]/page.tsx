@@ -104,7 +104,10 @@ export default function Form() {
     // Quiz settings
     isQuiz: false,
     showCorrectAnswers: true,
-    releaseGrades: true
+    releaseGrades: true,
+    // Response editing settings
+    allowResponseEditing: false,
+    editTimeLimit: '24h'
   });
   
   // Track original settings for change detection
@@ -118,11 +121,38 @@ export default function Form() {
     // Quiz settings
     isQuiz: false,
     showCorrectAnswers: true,
-    releaseGrades: true
+    releaseGrades: true,
+    // Response editing settings
+    allowResponseEditing: false,
+    editTimeLimit: '24h'
   });
 
   // Check if this is an existing form or new form
   const isExistingForm = formId !== 'create';
+
+  // Auto-disable response editing when quiz mode is enabled
+  useEffect(() => {
+    if (formSettings.isQuiz && formSettings.allowResponseEditing) {
+      console.log('🚫 Quiz mode enabled - automatically disabling response editing for academic integrity');
+      setFormSettings(prev => ({
+        ...prev,
+        allowResponseEditing: false
+      }));
+    }
+  }, [formSettings.isQuiz]);
+
+  // Utility function to validate settings before saving
+  const validateSettings = (settings: typeof formSettings) => {
+    // Ensure response editing is disabled in quiz mode
+    if (settings.isQuiz && settings.allowResponseEditing) {
+      console.warn('⚠️ Preventing response editing in quiz mode - academic integrity violation');
+      return {
+        ...settings,
+        allowResponseEditing: false
+      };
+    }
+    return settings;
+  };
 
   // Fetch existing form data if editing
   useEffect(() => {
@@ -269,7 +299,10 @@ export default function Form() {
           // Quiz settings
           isQuiz: data.form.isQuiz || false,
           showCorrectAnswers: data.form.showCorrectAnswers ?? true,
-          releaseGrades: data.form.releaseGrades ?? true
+          releaseGrades: data.form.releaseGrades ?? true,
+          // Response editing settings
+          allowResponseEditing: data.form.allowResponseEditing || false,
+          editTimeLimit: data.form.editTimeLimit || '24h'
         };
         console.log('🎯 Loaded quiz settings:', {
           isQuiz: loadedSettings.isQuiz,
@@ -521,17 +554,7 @@ export default function Form() {
           points: q.points || 1,
           correctAnswers: q.correctAnswers || []
         })),
-        settings: {
-          shuffleQuestions: formSettings.shuffleQuestions,
-          collectEmail: formSettings.collectEmail,
-          allowMultipleResponses: formSettings.allowMultipleResponses,
-          showProgress: formSettings.showProgress,
-          confirmationMessage: formSettings.confirmationMessage,
-          // Quiz settings
-          isQuiz: formSettings.isQuiz,
-          showCorrectAnswers: formSettings.showCorrectAnswers,
-          releaseGrades: formSettings.releaseGrades
-        }
+        settings: validateSettings(formSettings)
       };
       
       console.log('🚀 SAVING FORM - Full payload:', JSON.stringify(payload, null, 2));
@@ -1296,6 +1319,70 @@ export default function Form() {
                       />
                     </button>
                   </div>
+
+                  {/* Response Editing - Only show if NOT a quiz */}
+                  {!formSettings.isQuiz && (
+                    <>
+                      {/* Allow response editing toggle */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <label className="text-sm font-medium text-gray-700">Allow response editing</label>
+                          <p className="text-sm text-gray-500 mt-1">
+                            Let users modify their responses after submission
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setFormSettings(prev => ({ ...prev, allowResponseEditing: !prev.allowResponseEditing }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            formSettings.allowResponseEditing ? 'bg-blue-600' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              formSettings.allowResponseEditing ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Edit time limit - only show when response editing is enabled */}
+                      {formSettings.allowResponseEditing && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <label className="text-sm font-medium text-gray-700">Edit time limit</label>
+                            <p className="text-sm text-gray-500 mt-1">
+                              How long users can edit their responses
+                            </p>
+                          </div>
+                          <select
+                            value={formSettings.editTimeLimit}
+                            onChange={(e) => setFormSettings(prev => ({ ...prev, editTimeLimit: e.target.value }))}
+                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm min-w-[120px]"
+                          >
+                            <option value="24h">24 Hours</option>
+                            <option value="7d">7 Days</option>
+                            <option value="30d">30 Days</option>
+                            <option value="always">Always</option>
+                          </select>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Quiz mode restriction notice - only show when quiz is enabled */}
+                  {formSettings.isQuiz && (
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                      <div className="flex items-center space-x-2">
+                        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                        <span className="text-orange-800 text-sm font-medium">Quiz Mode Active</span>
+                      </div>
+                      <p className="text-orange-700 text-sm mt-1">
+                        Response editing is automatically disabled in quiz mode to maintain academic integrity.
+                      </p>
+                    </div>
+                  )}
 
                 </div>
 

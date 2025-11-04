@@ -51,6 +51,10 @@ model Form {
   showCorrectAnswers     Boolean    @default(true)
   releaseGrades          Boolean    @default(true)
   
+  // Response Editing Settings
+  allowResponseEditing   Boolean    @default(false)
+  editTimeLimit          String     @default("24h") // "always", "24h", "7d", "30d"
+  
   questions              Question[]
   responses              Response[]
 }
@@ -95,6 +99,10 @@ model Response {
   // Quiz results
   totalScore     Int?     // Total points scored (null for regular forms)
   maxScore       Int?     // Maximum possible points
+  
+  // Response editing
+  editToken      String?  // Token for editing responses
+  editTokenExpiry DateTime? // When edit permission expires
   
   user      User?      @relation(fields: [userId], references: [id])
   form      Form       @relation(fields: [formId], references: [id])

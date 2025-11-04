@@ -175,6 +175,9 @@ export async function PUT(
         isQuiz: settings?.isQuiz ?? existingForm.isQuiz,
         showCorrectAnswers: settings?.showCorrectAnswers ?? existingForm.showCorrectAnswers,
         releaseGrades: settings?.releaseGrades ?? existingForm.releaseGrades,
+        // Response editing settings (automatically disabled if quiz mode)
+        allowResponseEditing: ((settings?.isQuiz ?? existingForm.isQuiz) ? false : (settings?.allowResponseEditing ?? existingForm.allowResponseEditing)),
+        editTimeLimit: settings?.editTimeLimit ?? existingForm.editTimeLimit,
         questions: {
           create: questions.map((question: any, index: number) => ({
             text: question.question || question.text,

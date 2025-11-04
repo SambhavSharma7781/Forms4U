@@ -48,8 +48,22 @@ export default function CreateFormPage() {
     // Quiz settings
     isQuiz: false,
     showCorrectAnswers: true,
-    releaseGrades: true
+    releaseGrades: true,
+    // Response editing settings
+    allowResponseEditing: false,
+    editTimeLimit: '24h'
   });
+
+  // Auto-disable response editing when quiz mode is enabled
+  useEffect(() => {
+    if (formSettings.isQuiz && formSettings.allowResponseEditing) {
+      console.log('🚫 Quiz mode enabled - automatically disabling response editing');
+      setFormSettings(prev => ({
+        ...prev,
+        allowResponseEditing: false
+      }));
+    }
+  }, [formSettings.isQuiz]);
 
   // Listen for navbar button clicks
   useEffect(() => {

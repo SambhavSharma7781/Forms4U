@@ -48,6 +48,9 @@ export async function GET(
         isQuiz: form.isQuiz,
         showCorrectAnswers: form.showCorrectAnswers,
         releaseGrades: form.releaseGrades,
+        // Response editing settings (needed for response handling)
+        allowResponseEditing: form.allowResponseEditing,
+        editTimeLimit: form.editTimeLimit,
         questions: form.questions.map(question => ({
           id: question.id,
           text: question.text,

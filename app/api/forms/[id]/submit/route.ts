@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/services/prisma';
+import { generateEditToken, calculateTokenExpiry } from '@/lib/editToken';
 
 // POST: Submit form response
 export async function POST(
@@ -74,6 +75,16 @@ export async function POST(
       }
     }
 
+    // Generate edit token if response editing is enabled
+    let editToken = null;
+    let editTokenExpiry = null;
+    
+    if (form.allowResponseEditing && !form.isQuiz) {
+      editToken = generateEditToken();
+      editTokenExpiry = calculateTokenExpiry(form.editTimeLimit || '24h');
+      console.log('Generated edit token for response editing');
+    }
+
     // Create response record (anonymous - no userId)
     const responseRecord = await prisma.response.create({
       data: {
@@ -82,6 +93,9 @@ export async function POST(
         // Quiz fields
         totalScore: totalScore || null,
         maxScore: maxScore || null,
+        // Edit token fields
+        editToken: editToken,
+        editTokenExpiry: editTokenExpiry,
         // userId is optional for anonymous responses
       }
     });
@@ -156,12 +170,22 @@ export async function POST(
     
     console.log('All answers created:', createdAnswers.length, 'answers');
 
-    return NextResponse.json({
+    // Prepare response with edit link if editing is enabled
+    const responseData: any = {
       success: true,
       message: 'Response submitted successfully',
       confirmationMessage: form.confirmationMessage || 'Your response has been recorded.',
       responseId: responseRecord.id
-    });
+    };
+
+    // Add edit link if response editing is enabled
+    if (editToken) {
+      responseData.editLink = `/forms/${formId}/edit-response/${editToken}`;
+      responseData.canEdit = true;
+      responseData.editExpiresAt = editTokenExpiry;
+    }
+
+    return NextResponse.json(responseData);
 
   } catch (error) {
     console.error('Error submitting response:', error);

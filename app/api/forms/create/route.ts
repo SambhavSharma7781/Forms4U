@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
         isQuiz: settings?.isQuiz || false,
         showCorrectAnswers: settings?.showCorrectAnswers ?? true,
         releaseGrades: settings?.releaseGrades ?? true,
+        // Response editing settings (automatically disabled if quiz mode)
+        allowResponseEditing: (settings?.isQuiz ? false : (settings?.allowResponseEditing || false)),
+        editTimeLimit: settings?.editTimeLimit || '24h',
         questions: {
           create: questions.map((question: any, index: number) => ({
             text: question.question || question.text, // Handle both properties

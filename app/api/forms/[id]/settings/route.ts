@@ -50,7 +50,10 @@ export async function PUT(
         // Quiz settings
         isQuiz: settingsData.isQuiz,
         showCorrectAnswers: settingsData.showCorrectAnswers,
-        releaseGrades: settingsData.releaseGrades
+        releaseGrades: settingsData.releaseGrades,
+        // Response editing settings (automatically disabled if quiz mode)
+        allowResponseEditing: settingsData.isQuiz ? false : settingsData.allowResponseEditing,
+        editTimeLimit: settingsData.editTimeLimit
       }
     });
 
@@ -66,7 +69,10 @@ export async function PUT(
         // Quiz settings
         isQuiz: updatedForm.isQuiz,
         showCorrectAnswers: updatedForm.showCorrectAnswers,
-        releaseGrades: updatedForm.releaseGrades
+        releaseGrades: updatedForm.releaseGrades,
+        // Response editing settings
+        allowResponseEditing: updatedForm.allowResponseEditing,
+        editTimeLimit: updatedForm.editTimeLimit
       }
     });
 

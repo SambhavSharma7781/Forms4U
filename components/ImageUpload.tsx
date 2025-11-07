@@ -44,7 +44,6 @@ export default function ImageUpload({ imageUrl, onImageUpload, onImageRemove }: 
       };
       reader.readAsDataURL(file); // Start reading file as base64
     } catch (error) {
-      console.error('Error uploading image:', error);
       setIsUploading(false);
     }
   };

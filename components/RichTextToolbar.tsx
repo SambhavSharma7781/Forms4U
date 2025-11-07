@@ -18,24 +18,19 @@ export default function RichTextToolbar({ isVisible, onFormat }: RichTextToolbar
     if (isVisible) {
       // Immediate check for selection
       const selection = window.getSelection();
-      console.log('Checking selection on toolbar visible:', selection); // Debug
       
       if (selection && selection.rangeCount > 0) {
         const selectedText = selection.toString().trim();
-        console.log('Found selected text:', selectedText); // Debug
         
         if (selectedText !== '') {
           const range = selection.getRangeAt(0);
           setSavedSelection(range.cloneRange());
           setSelectedText(selectedText);
-          console.log('✅ Saved selection successfully:', selectedText); // Debug log
         } else {
-          console.log('❌ No text selected'); // Debug
           setSavedSelection(null);
           setSelectedText('');
         }
       } else {
-        console.log('❌ No selection or no ranges'); // Debug
         setSavedSelection(null);
         setSelectedText('');
       }

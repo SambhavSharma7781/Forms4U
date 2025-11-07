@@ -16,7 +16,7 @@ interface Question {
   description?: string; // Add description field for helper text
   type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES' | 'DROPDOWN';
   required: boolean;
-  options: { id: string; text: string; }[];
+  options: { id: string; text: string; imageUrl?: string; }[];
   shuffleOptionsOrder?: boolean;
   imageUrl?: string; // Add image URL field
   // Quiz fields
@@ -133,7 +133,6 @@ export default function Form() {
   // Auto-disable response editing when quiz mode is enabled
   useEffect(() => {
     if (formSettings.isQuiz && formSettings.allowResponseEditing) {
-      console.log('🚫 Quiz mode enabled - automatically disabling response editing for academic integrity');
       setFormSettings(prev => ({
         ...prev,
         allowResponseEditing: false
@@ -145,7 +144,6 @@ export default function Form() {
   const validateSettings = (settings: typeof formSettings) => {
     // Ensure response editing is disabled in quiz mode
     if (settings.isQuiz && settings.allowResponseEditing) {
-      console.warn('⚠️ Preventing response editing in quiz mode - academic integrity violation');
       return {
         ...settings,
         allowResponseEditing: false
@@ -232,28 +230,12 @@ export default function Form() {
   useEffect(() => {
     // Only update navbar after form data is fully loaded and published status is defined
     if (formData.id && isExistingForm && !loading && formData.published !== undefined) {
-      console.log('Form page sending status update:', JSON.stringify({
-        published: formData.published,
-        acceptingResponses: formData.acceptingResponses,
-        formId: formData.id,
-        title: formData.title,
-        loading: loading,
-        isExistingForm: isExistingForm
-      }));
       navbarEvents.emit('formStatusUpdate', {
         published: formData.published,
         acceptingResponses: formData.acceptingResponses,
         formId: formData.id,
         title: formData.title
       });
-    } else {
-      console.log('Form page NOT sending status update because:', JSON.stringify({
-        hasId: !!formData.id,
-        isExistingForm: isExistingForm,
-        loading: loading,
-        published: formData.published,
-        publishedUndefined: formData.published === undefined
-      }));
     }
   }, [formData.published, formData.acceptingResponses, formData.id, formData.title, isExistingForm, loading]);
 
@@ -322,7 +304,6 @@ export default function Form() {
         router.push('/');
       }
     } catch (error) {
-      console.error('Error fetching form:', error);
       router.push('/');
     } finally {
       setLoading(false);
@@ -338,7 +319,7 @@ export default function Form() {
         setResponseCount(data.count);
       }
     } catch (error) {
-      console.error('Error fetching response count:', error);
+      // Error handled silently
     }
   };
 
@@ -350,11 +331,9 @@ export default function Form() {
       
       if (data.success) {
         setResponseData(data);
-      } else {
-        console.error('Error fetching responses:', data.error);
       }
     } catch (error) {
-      console.error('Error fetching responses:', error);
+      // Error handled silently
     } finally {
       setLoadingResponses(false);
     }
@@ -368,26 +347,22 @@ export default function Form() {
   // Check if form has unsaved changes
   const hasUnsavedChanges = () => {
     if (!originalFormData) {
-      console.log('📝 No originalFormData - returning false');
       return false;
     }
     
     // Compare title and description
     if (formData.title !== originalFormData.title || 
         formData.description !== originalFormData.description) {
-      console.log('📝 Title/Description changed');
       return true;
     }
     
     // Compare form settings (including quiz settings)
     if (hasUnsavedSettingsChanges()) {
-      console.log('📝 Settings changed');
       return true;
     }
     
     // Compare questions count
     if (formData.questions.length !== originalFormData.questions.length) {
-      console.log('📝 Questions count changed');
       return true;
     }
     
@@ -397,17 +372,14 @@ export default function Form() {
       const originalQ = originalFormData.questions[i];
       
       if (!originalQ) {
-        console.log('📝 New question detected');
         return true; // New question
       }
       
       if (currentQ.text !== originalQ.text) {
-        console.log('📝 Question text changed:', currentQ.text, '!=', originalQ.text);
         return true;
       }
       
       if ((currentQ.description || '') !== (originalQ.description || '')) {
-        console.log('📝 Question description changed:', currentQ.description, '!=', originalQ.description);
         return true;
       }
       
@@ -415,7 +387,6 @@ export default function Form() {
           currentQ.required !== originalQ.required ||
           (currentQ.shuffleOptionsOrder || false) !== (originalQ.shuffleOptionsOrder || false) ||
           (currentQ.imageUrl || '') !== (originalQ.imageUrl || '')) {
-        console.log('📝 Other question properties changed');
         return true;
       }
       
@@ -432,22 +403,30 @@ export default function Form() {
       }
       
       // Compare options for questions that have them
-      if (currentQ.options && originalQ.options) {
-        if (currentQ.options.length !== originalQ.options.length) {
+      // Filter empty options for consistent comparison with QuestionCard filtering
+      const currentOptions = currentQ.options?.filter(opt => opt.text.trim() !== "") || [];
+      const originalOptions = originalQ.options?.filter(opt => opt.text.trim() !== "") || [];
+      
+      if (currentOptions.length !== originalOptions.length) {
+        return true;
+      }
+      
+      for (let j = 0; j < currentOptions.length; j++) {
+        if (currentOptions[j].text !== originalOptions[j].text ||
+            (currentOptions[j].imageUrl || '') !== (originalOptions[j].imageUrl || '')) {
+          console.log('🔍 OPTION CONTENT MISMATCH:', {
+            questionIndex: i,
+            optionIndex: j,
+            currentText: currentOptions[j].text,
+            originalText: originalOptions[j].text,
+            currentImage: currentOptions[j].imageUrl,
+            originalImage: originalOptions[j].imageUrl
+          });
           return true;
         }
-        
-        for (let j = 0; j < currentQ.options.length; j++) {
-          if (currentQ.options[j].text !== originalQ.options[j].text) {
-            return true;
-          }
-        }
-      } else if (currentQ.options?.length !== originalQ.options?.length) {
-        return true;
       }
     }
     
-    console.log('📝 No changes detected');
     return false;
   };
 
@@ -473,7 +452,8 @@ export default function Form() {
       text: '',
       type: 'SHORT_ANSWER',
       required: formSettings.defaultRequired,
-      options: []
+      options: [],
+      imageUrl: '' // Initialize imageUrl field
     };
     setFormData({
       ...formData,
@@ -547,7 +527,7 @@ export default function Form() {
           description: q.description, // Add description to the payload
           type: q.type,
           required: q.required,
-          options: q.options.map(opt => opt.text),
+          options: q.options,
           shuffleOptionsOrder: q.shuffleOptionsOrder || false,
           imageUrl: q.imageUrl, // Add image URL to the payload
           // Quiz fields
@@ -863,7 +843,7 @@ export default function Form() {
                   initialDescription={question.description || ""} // Pass description to QuestionCard
                   initialType={question.type}
                   initialRequired={question.required}
-                  initialOptions={question.options?.map((opt: any) => opt.text) || []}
+                  initialOptions={question.options || []}
                   initialShuffleOptionsOrder={question.shuffleOptionsOrder || false}
                   initialImageUrl={question.imageUrl || ""}
                   // Quiz props
@@ -873,10 +853,6 @@ export default function Form() {
                   onDelete={() => deleteQuestion(question.id)}
                   onDuplicate={() => duplicateQuestion(question.id)}
                   onUpdate={(data) => {
-                    console.log('🟡 QuestionCard onUpdate called!');
-                    console.log('🟡 Data received:', data);
-                    console.log('🟡 Description changed from:', question.description, 'to:', data.description);
-                    
                     // Update the question with new data
                     const updatedQuestions = formData.questions.map((q: any) =>
                       q.id === question.id
@@ -888,9 +864,10 @@ export default function Form() {
                             required: data.required,
                             shuffleOptionsOrder: data.shuffleOptionsOrder,
                             imageUrl: data.imageUrl, // Add image URL to the update
-                            options: data.options.map((optText: string, idx: number) => ({
+                            options: data.options.map((opt: any, idx: number) => ({
                               id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
-                              text: optText
+                              text: opt.text,
+                              imageUrl: opt.imageUrl
                             })),
                             // Quiz fields
                             points: data.points,
@@ -899,7 +876,6 @@ export default function Form() {
                         : q
                     );
                     
-                    console.log('🟡 Updated formData with description');
                     setFormData({ ...formData, questions: updatedQuestions });
                   }}
                 />
@@ -928,9 +904,6 @@ export default function Form() {
               {/* Save Button */}
               <button
                 onClick={() => {
-                  console.log('🔵 Save button clicked!');
-                  console.log('🔵 hasUnsavedChanges():', hasUnsavedChanges());
-                  console.log('🔵 isExistingForm:', isExistingForm);
                   saveForm();
                 }}
                 disabled={saving || (!hasUnsavedChanges() && isExistingForm)}
@@ -942,7 +915,6 @@ export default function Form() {
               >
                 {(() => {
                   const hasChanges = hasUnsavedChanges();
-                  console.log('🟢 Button render - hasChanges:', hasChanges, 'isExistingForm:', isExistingForm);
                   
                   if (saving) return 'Saving...';
                   if (hasChanges || !isExistingForm) {

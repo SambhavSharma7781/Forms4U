@@ -85,6 +85,7 @@ export async function PUT(
               description: question.description || null, // Add description field
               type: question.type,
               required: question.required,
+              imageUrl: question.imageUrl || null, // Add imageUrl field
               formId: formId
             }
           });
@@ -93,7 +94,8 @@ export async function PUT(
           if ((question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES' || question.type === 'DROPDOWN') && question.options.length > 0) {
             await tx.option.createMany({
               data: question.options.map((option: any) => ({
-                text: option.text,
+                text: typeof option === 'string' ? option : option.text,
+                imageUrl: typeof option === 'string' ? null : (option.imageUrl || null),
                 questionId: createdQuestion.id
               }))
             });
@@ -151,7 +153,8 @@ export async function PUT(
                   text: newQuestion.text,
                   description: newQuestion.description || null, // Add description field
                   type: newQuestion.type,
-                  required: newQuestion.required
+                  required: newQuestion.required,
+                  imageUrl: newQuestion.imageUrl || null // Add imageUrl field
                 }
               });
 
@@ -167,6 +170,7 @@ export async function PUT(
                   await tx.option.createMany({
                     data: newQuestion.options.map((option: any) => ({
                       text: typeof option === 'string' ? option : option.text,
+                      imageUrl: typeof option === 'string' ? null : (option.imageUrl || null),
                       questionId: existingQuestion.id
                     }))
                   });
@@ -182,6 +186,7 @@ export async function PUT(
                 description: newQuestion.description || null, // Add description field
                 type: newQuestion.type,
                 required: newQuestion.required,
+                imageUrl: newQuestion.imageUrl || null, // Add imageUrl field
                 formId: formId
               }
             });
@@ -190,7 +195,8 @@ export async function PUT(
             if (['MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'].includes(newQuestion.type) && newQuestion.options && newQuestion.options.length > 0) {
               await tx.option.createMany({
                 data: newQuestion.options.map((option: any) => ({
-                  text: option.text,
+                  text: typeof option === 'string' ? option : option.text,
+                  imageUrl: typeof option === 'string' ? null : (option.imageUrl || null),
                   questionId: createdQuestion.id
                 }))
               });

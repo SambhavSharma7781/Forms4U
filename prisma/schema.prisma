@@ -85,6 +85,7 @@ model Question {
 model Option {
   id         String    @id @map("_id") @default(auto()) @db.ObjectId
   text       String
+  imageUrl   String?   // Optional image URL for the option
   questionId String    @db.ObjectId
   question   Question  @relation(fields: [questionId], references: [id])
 }

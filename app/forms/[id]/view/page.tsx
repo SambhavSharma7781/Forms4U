@@ -10,6 +10,7 @@ import { formatTimeRemaining } from '@/lib/editToken';
 interface Option {
   id: string;
   text: string;
+  imageUrl?: string;
 }
 
 interface Question {
@@ -301,12 +302,25 @@ export default function PublicFormView() {
       
       if (data.success) {
         setFormData(data.form);
-        console.log('📋 Form loaded for quiz:', {
+        console.log('📋 Form loaded:', {
           isQuiz: data.form.isQuiz,
           showCorrectAnswers: data.form.showCorrectAnswers,
           releaseGrades: data.form.releaseGrades,
           formTitle: data.form.title
         });
+        
+        // Debug specific to image options
+        console.log('🖼️ DEBUG: Form questions and options:', data.form.questions.map((q: any) => ({
+          id: q.id,
+          type: q.type,
+          text: q.text?.substring(0, 50),
+          optionCount: q.options?.length || 0,
+          options: q.options?.map((opt: any) => ({
+            text: opt.text || '[EMPTY]',
+            hasImage: !!opt.imageUrl,
+            imageUrl: opt.imageUrl?.substring(0, 50) + (opt.imageUrl?.length > 50 ? '...' : '')
+          })) || []
+        })));
         
         // Process questions with option shuffling if needed
         const processedQuestions = data.form.questions.map((question: Question) => {
@@ -538,19 +552,47 @@ export default function PublicFormView() {
         );
 
       case 'MULTIPLE_CHOICE':
+        console.log('🔍 MULTIPLE_CHOICE Debug:', {
+          questionId: question.id,
+          totalOptions: question.options.length,
+          filteredOptions: question.options.filter((option) => option.text?.trim() || option.imageUrl).length,
+          optionsDetails: question.options.map(opt => ({
+            text: opt.text || '[EMPTY]',
+            hasImage: !!opt.imageUrl,
+            willShow: !!(opt.text?.trim() || opt.imageUrl)
+          }))
+        });
         return (
-          <div className="space-y-2">
-            {question.options.map((option) => (
-              <label key={option.id} className="flex items-center space-x-3 cursor-pointer">
+          <div className="space-y-3">
+            {question.options
+              .filter((option) => option.text?.trim() || option.imageUrl) // Only show options with text or image
+              .map((option) => (
+              <label key={option.id} className="flex items-start space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors">
                 <input
                   type="radio"
                   name={question.id}
-                  value={option.text}
-                  checked={response === option.text}
+                  value={option.text || `image-option-${option.id}`} // Use unique value for image-only options
+                  checked={response === (option.text || `image-option-${option.id}`)}
                   onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  className="w-4 h-4 text-blue-600"
+                  className="w-4 h-4 text-blue-600 mt-1"
                 />
-                <span>{option.text}</span>
+                <div className="flex-1">
+                  {option.imageUrl && (
+                    <div className={option.text?.trim() ? "mb-2" : ""}>
+                      <img 
+                        src={option.imageUrl} 
+                        alt={option.text ? `Option image for ${option.text}` : "Option image"}
+                        className="w-full max-w-xs h-auto rounded-md border border-gray-200"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                  {option.text?.trim() && (
+                    <span className="text-gray-900">{option.text}</span>
+                  )}
+                </div>
               </label>
             ))}
           </div>
@@ -558,25 +600,45 @@ export default function PublicFormView() {
 
       case 'CHECKBOXES':
         return (
-          <div className="space-y-2">
-            {question.options.map((option) => (
-              <label key={option.id} className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={(response as string[] || []).includes(option.text)}
-                  onChange={(e) => {
-                    const currentResponses = response as string[] || [];
-                    if (e.target.checked) {
-                      handleInputChange(question.id, [...currentResponses, option.text]);
-                    } else {
-                      handleInputChange(question.id, currentResponses.filter(r => r !== option.text));
-                    }
-                  }}
-                  className="w-4 h-4 text-blue-600"
-                />
-                <span>{option.text}</span>
-              </label>
-            ))}
+          <div className="space-y-3">
+            {question.options
+              .filter((option) => option.text?.trim() || option.imageUrl) // Only show options with text or image
+              .map((option) => {
+                const optionValue = option.text || `image-option-${option.id}`;
+                return (
+                <label key={option.id} className="flex items-start space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={(response as string[] || []).includes(optionValue)}
+                    onChange={(e) => {
+                      const currentResponses = response as string[] || [];
+                      if (e.target.checked) {
+                        handleInputChange(question.id, [...currentResponses, optionValue]);
+                      } else {
+                        handleInputChange(question.id, currentResponses.filter(r => r !== optionValue));
+                      }
+                    }}
+                    className="w-4 h-4 text-blue-600 mt-1"
+                  />
+                  <div className="flex-1">
+                    {option.imageUrl && (
+                      <div className={option.text?.trim() ? "mb-2" : ""}>
+                        <img 
+                          src={option.imageUrl} 
+                          alt={option.text ? `Option image for ${option.text}` : "Option image"}
+                          className="w-full max-w-xs h-auto rounded-md border border-gray-200"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    {option.text?.trim() && (
+                      <span className="text-gray-900">{option.text}</span>
+                    )}
+                  </div>
+                </label>
+              )})}
           </div>
         );
 
@@ -591,11 +653,19 @@ export default function PublicFormView() {
               }`}
             >
               <option value="" disabled className="text-gray-500">Select an option</option>
-              {question.options.map((option) => (
-                <option key={option.id} value={option.text} className="text-gray-900">
-                  {option.text}
-                </option>
-              ))}
+              {question.options
+                .filter((option) => option.text?.trim() || option.imageUrl)
+                .map((option) => {
+                  const optionValue = option.text || `image-option-${option.id}`;
+                  const displayText = option.text?.trim() 
+                    ? option.text 
+                    : (option.imageUrl ? "Image Option" : "");
+                  return (
+                    <option key={option.id} value={optionValue} className="text-gray-900">
+                      {displayText}
+                    </option>
+                  );
+                })}
             </select>
             {/* Custom dropdown arrow */}
             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">

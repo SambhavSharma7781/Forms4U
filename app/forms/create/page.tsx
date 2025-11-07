@@ -6,13 +6,20 @@ import { useState, useEffect } from "react";
 import QuestionCard from "@/components/QuestionCard";
 import { navbarEvents } from "@/components/Navbar";
 
+type QuestionType = "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
+
+interface OptionWithImage {
+  text: string;
+  imageUrl?: string;
+}
+
 interface Question {
   id: string;
   question: string;
   description?: string; // Add description field for helper text
-  type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
+  type: QuestionType;
   required: boolean;
-  options?: string[];
+  options?: OptionWithImage[];
   shuffleOptionsOrder?: boolean;
   imageUrl?: string; // Add image URL field
   // Quiz fields
@@ -57,7 +64,6 @@ export default function CreateFormPage() {
   // Auto-disable response editing when quiz mode is enabled
   useEffect(() => {
     if (formSettings.isQuiz && formSettings.allowResponseEditing) {
-      console.log('🚫 Quiz mode enabled - automatically disabling response editing');
       setFormSettings(prev => ({
         ...prev,
         allowResponseEditing: false
@@ -119,9 +125,9 @@ export default function CreateFormPage() {
     id: string;
     question: string;
     description?: string; // Add description field
-    type: "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
+    type: QuestionType;
     required: boolean;
-    options: string[];
+    options: OptionWithImage[];
     shuffleOptionsOrder?: boolean;
     imageUrl?: string; // Add image URL field
     points?: number;
@@ -175,7 +181,7 @@ export default function CreateFormPage() {
     // Validate and clean questions before saving
     const validQuestions = questions.filter(q => q.question.trim() !== '').map(q => ({
       ...q,
-      options: q.options?.filter(opt => opt.trim() !== '') || []
+      options: q.options?.filter(opt => opt.text.trim() !== '' || opt.imageUrl) || []
     }));
 
     if (validQuestions.length === 0) {
@@ -216,7 +222,7 @@ export default function CreateFormPage() {
         alert('Error saving form: ' + (result.message || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Save error:', error);
+      // Error handling can be added here if needed
     } finally {
       setSaving(false);
     }

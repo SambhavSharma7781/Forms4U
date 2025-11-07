@@ -12,11 +12,6 @@ export async function POST(
     const body = await request.json();
     const { responses, email, totalScore, maxScore, quizResults } = body;
 
-    console.log('Form submission for:', formId);
-    console.log('Received responses:', responses);
-    console.log('Received email:', email);
-    console.log('Quiz data:', { totalScore, maxScore, quizResults });
-
 
 
     // Validate that form exists

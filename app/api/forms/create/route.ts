@@ -74,8 +74,9 @@ export async function POST(request: NextRequest) {
             shuffleOptionsOrder: question.shuffleOptionsOrder || false,
             options: question.options
               ? {
-                  create: question.options.map((option: string, optionIndex: number) => ({
-                    text: option
+                  create: question.options.map((option: any, optionIndex: number) => ({
+                    text: typeof option === 'string' ? option : option.text,
+                    imageUrl: typeof option === 'string' ? null : (option.imageUrl || null)
                   }))
                 }
               : undefined

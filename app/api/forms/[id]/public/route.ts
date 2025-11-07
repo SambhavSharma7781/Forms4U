@@ -65,7 +65,8 @@ export async function GET(
           shuffleOptionsOrder: question.shuffleOptionsOrder,
           options: question.options.map(option => ({
             id: option.id,
-            text: option.text
+            text: option.text,
+            imageUrl: option.imageUrl
           }))
         }))
       }

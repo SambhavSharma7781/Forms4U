@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import RichTextEditor from "@/components/RichTextEditor";
 import ImageUpload from "@/components/ImageUpload";
 import { 
@@ -16,16 +15,20 @@ import {
 
 type QuestionType = "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
 
+interface OptionWithImage {
+  text: string;
+  imageUrl?: string;
+}
+
 interface QuestionCardProps {
   id?: string;
   initialQuestion?: string;
-  initialDescription?: string; // Add description prop
+  initialDescription?: string;
   initialType?: QuestionType;
   initialRequired?: boolean;
-  initialOptions?: string[];
+  initialOptions?: OptionWithImage[];
   initialShuffleOptionsOrder?: boolean;
-  initialImageUrl?: string; // Add image URL prop
-  // Quiz props
+  initialImageUrl?: string;
   isQuiz?: boolean;
   initialPoints?: number;
   initialCorrectAnswers?: string[];
@@ -34,12 +37,12 @@ interface QuestionCardProps {
   onUpdate?: (data: {
     id: string;
     question: string;
-    description?: string; // Add description to update data
+    description?: string;
     type: QuestionType;
     required: boolean;
-    options: string[];
+    options: OptionWithImage[];
     shuffleOptionsOrder?: boolean;
-    imageUrl?: string; // Add image URL to update data
+    imageUrl?: string;
     points?: number;
     correctAnswers?: string[];
   }) => void;
@@ -48,13 +51,12 @@ interface QuestionCardProps {
 export default function QuestionCard({
   id,
   initialQuestion = "",
-  initialDescription = "", // Add description prop with default empty string
+  initialDescription = "",
   initialType = "SHORT_ANSWER",
   initialRequired = false,
   initialOptions = [],
   initialShuffleOptionsOrder = false,
-  initialImageUrl = "", // Add image URL prop with default empty string
-  // Quiz props
+  initialImageUrl = "",
   isQuiz = false,
   initialPoints = 1,
   initialCorrectAnswers = [],
@@ -63,93 +65,102 @@ export default function QuestionCard({
   onUpdate
 }: QuestionCardProps) {
   const [question, setQuestion] = useState(initialQuestion);
-  const [description, setDescription] = useState(initialDescription); // Add description state
-  const [showDescription, setShowDescription] = useState(!!initialDescription); // Show description input if it has value
+  const [description, setDescription] = useState(initialDescription);
+  const [showDescription, setShowDescription] = useState(!!initialDescription);
   const [questionType, setQuestionType] = useState<QuestionType>(initialType);
   const [required, setRequired] = useState(initialRequired);
   const [isEditing, setIsEditing] = useState(!initialQuestion);
   const [shuffleOptionsOrder, setShuffleOptionsOrder] = useState(initialShuffleOptionsOrder);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<'top' | 'bottom'>('bottom'); // Track menu position
-  const [imageUrl, setImageUrl] = useState(initialImageUrl); // Add image state
-  // Quiz states
+  const [menuPosition, setMenuPosition] = useState<'top' | 'bottom'>('bottom');
+  const [imageUrl, setImageUrl] = useState(initialImageUrl);
   const [points, setPoints] = useState(initialPoints);
   const [correctAnswers, setCorrectAnswers] = useState<string[]>(() => {
-    // If initial correct answers are provided, use them
     if (initialCorrectAnswers.length > 0) {
       return initialCorrectAnswers;
     }
-    // For text questions, initialize with one empty answer field
     if (questionType === 'SHORT_ANSWER' || questionType === 'PARAGRAPH') {
       return [''];
     }
     return [];
   });
-  const [options, setOptions] = useState<string[]>(() => {
-    // If initialOptions are provided, use them
+  const [options, setOptions] = useState<OptionWithImage[]>(() => {
     if (initialOptions.length > 0) {
       return initialOptions;
     }
-    // Otherwise, create default options for types that need them
     if (questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") {
-      return ["Option 1", ""];
+      return [{ text: "Option 1", imageUrl: undefined }, { text: "", imageUrl: undefined }];
     }
     return [];
   });
 
-  // Notify parent whenever data changes
   const notifyParent = () => {
     if (onUpdate && id) {
+      const filteredOptions = options.filter(opt => opt.text.trim() !== "" || opt.imageUrl);
+      
+      console.log('📤 NOTIFY PARENT:', {
+        questionId: id,
+        type: questionType,
+        originalOptionsCount: options.length,
+        filteredOptionsCount: filteredOptions.length,
+        question: question.slice(0, 30) + '...',
+        allOptions: options.map(opt => ({
+          text: opt.text || '[EMPTY]',
+          hasImage: !!opt.imageUrl,
+          willBeFiltered: !(opt.text.trim() !== "" || opt.imageUrl)
+        })),
+        filteredOptions: filteredOptions.map(opt => ({
+          text: opt.text || '[EMPTY]',
+          hasImage: !!opt.imageUrl
+        }))
+      });
+      
       onUpdate({
         id,
         question,
-        description: description || undefined, // Add description to update data
+        description: description || undefined,
         type: questionType,
         required,
-        options: options.filter(opt => opt.trim() !== ""),
+        options: filteredOptions,
         shuffleOptionsOrder,
-        imageUrl: imageUrl || undefined, // Add image URL to update data
-        // Quiz fields
+        imageUrl: imageUrl || undefined,
         points: isQuiz ? points : undefined,
         correctAnswers: isQuiz ? correctAnswers : undefined
       });
     }
   };
 
-  // Notify parent when key data changes (including imageUrl and description)
   useEffect(() => {
     notifyParent();
   }, [question, description, questionType, required, options, shuffleOptionsOrder, imageUrl, points, correctAnswers, isQuiz]);
-
-  // Handle options when question type changes
+  
   useEffect(() => {
     if (questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") {
       if (options.length === 0) {
-        setOptions(["Option 1", ""]);
+        console.log('🔧 Adding default options for option-based question type');
+        setOptions([{ text: "Option 1", imageUrl: undefined }, { text: "", imageUrl: undefined }]);
       }
     } else {
       if (options.length > 0) {
+        console.log('🔧 Clearing options for non-option-based question type');
         setOptions([]);
       }
     }
   }, [questionType]);
 
-  // Image handler functions
   const handleImageUpload = (newImageUrl: string) => {
-    setImageUrl(newImageUrl); // Update image state when new image is uploaded
+    setImageUrl(newImageUrl);
   };
 
   const handleImageRemove = () => {
-    setImageUrl(''); // Clear image state when image is removed
+    setImageUrl('');
   };
 
-  // Handle menu positioning to avoid overflow
   const handleMenuToggle = (event: React.MouseEvent) => {
     const buttonRect = (event.target as HTMLElement).getBoundingClientRect();
     const windowHeight = window.innerHeight;
-    const menuHeight = 300; // Approximate menu height
+    const menuHeight = 300;
     
-    // If there's not enough space below, show menu above
     if (buttonRect.bottom + menuHeight > windowHeight) {
       setMenuPosition('top');
     } else {
@@ -168,6 +179,13 @@ export default function QuestionCard({
   ];
 
   const handleTypeChange = (newType: QuestionType) => {
+    console.log('🔄 QUESTION TYPE CHANGE:', {
+      from: questionType,
+      to: newType,
+      questionId: id,
+      currentOptions: options
+    });
+    
     setQuestionType(newType);
     
     // Initialize correct answers for text questions
@@ -177,12 +195,18 @@ export default function QuestionCard({
   };
 
   const addOption = () => {
-    setOptions([...options, ""]);
+    setOptions([...options, { text: "", imageUrl: undefined }]);
   };
 
   const updateOption = (index: number, value: string) => {
     const newOptions = [...options];
-    newOptions[index] = value;
+    newOptions[index] = { ...newOptions[index], text: value };
+    setOptions(newOptions);
+  };
+
+  const updateOptionImage = (index: number, imageUrl?: string) => {
+    const newOptions = [...options];
+    newOptions[index] = { ...newOptions[index], imageUrl };
     setOptions(newOptions);
   };
 
@@ -221,27 +245,39 @@ export default function QuestionCard({
       
       case "MULTIPLE_CHOICE":
         return (
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 space-y-4">
             {options.map((option, index) => (
-              <div key={index} className="flex items-center space-x-3">
-                <div className="w-4 h-4 border-2 border-gray-400 rounded-full"></div>
-                <input
-                  type="text"
-                  value={option}
-                  onChange={(e) => updateOption(index, e.target.value)}
-                  placeholder={`Option ${index + 1}`}
-                  className="flex-1 border-b border-gray-300 pb-1 outline-none focus:border-blue-500"
-                />
-                {options.length > 1 && (
-                  <button
-                    onClick={() => removeOption(index)}
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
+              <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                {/* Option Header */}
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-4 h-4 border-2 border-gray-400 rounded-full"></div>
+                  <input
+                    type="text"
+                    value={option.text}
+                    onChange={(e) => updateOption(index, e.target.value)}
+                    placeholder={`Option ${index + 1}`}
+                    className="flex-1 border-b border-gray-300 pb-1 outline-none focus:border-blue-500 bg-transparent"
+                  />
+                  {options.length > 1 && (
+                    <button
+                      onClick={() => removeOption(index)}
+                      className="text-gray-400 hover:text-red-500 p-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                
+                {/* Option Image Section */}
+                <div className="ml-7">
+                  <ImageUpload
+                    imageUrl={option.imageUrl}
+                    onImageUpload={(imageUrl) => updateOptionImage(index, imageUrl)}
+                    onImageRemove={() => updateOptionImage(index, undefined)}
+                  />
+                </div>
               </div>
             ))}
             <button
@@ -256,27 +292,39 @@ export default function QuestionCard({
       
       case "CHECKBOXES":
         return (
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 space-y-4">
             {options.map((option, index) => (
-              <div key={index} className="flex items-center space-x-3">
-                <div className="w-4 h-4 border-2 border-gray-400 rounded"></div>
-                <input
-                  type="text"
-                  value={option}
-                  onChange={(e) => updateOption(index, e.target.value)}
-                  placeholder={`Option ${index + 1}`}
-                  className="flex-1 border-b border-gray-300 pb-1 outline-none focus:border-blue-500"
-                />
-                {options.length > 1 && (
-                  <button
-                    onClick={() => removeOption(index)}
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
+              <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                {/* Option Header */}
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="w-4 h-4 border-2 border-gray-400 rounded"></div>
+                  <input
+                    type="text"
+                    value={option.text}
+                    onChange={(e) => updateOption(index, e.target.value)}
+                    placeholder={`Option ${index + 1}`}
+                    className="flex-1 border-b border-gray-300 pb-1 outline-none focus:border-blue-500 bg-transparent"
+                  />
+                  {options.length > 1 && (
+                    <button
+                      onClick={() => removeOption(index)}
+                      className="text-gray-400 hover:text-red-500 p-1"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+                
+                {/* Option Image Section */}
+                <div className="ml-7">
+                  <ImageUpload
+                    imageUrl={option.imageUrl}
+                    onImageUpload={(imageUrl) => updateOptionImage(index, imageUrl)}
+                    onImageRemove={() => updateOptionImage(index, undefined)}
+                  />
+                </div>
               </div>
             ))}
             <button
@@ -296,34 +344,45 @@ export default function QuestionCard({
               <select disabled className="w-full appearance-none border border-gray-300 rounded-md px-4 py-3 text-gray-500 text-sm bg-gray-50 cursor-not-allowed shadow-sm">
                 <option>Choose an option</option>
               </select>
-              {/* Custom dropdown arrow for disabled select */}
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </div>
             </div>
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 space-y-4">
               {options.map((option, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <span className="text-gray-400 text-sm">{index + 1}.</span>
-                  <input
-                    type="text"
-                    value={option}
-                    onChange={(e) => updateOption(index, e.target.value)}
-                    placeholder={`Option ${index + 1}`}
-                    className="flex-1 border-b border-gray-300 pb-1 outline-none focus:border-blue-500"
-                  />
-                  {options.length > 1 && (
-                    <button
-                      onClick={() => removeOption(index)}
-                      className="text-gray-400 hover:text-red-500"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  )}
+                <div key={index} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                  {/* Option Header */}
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="text-gray-400 text-sm">{index + 1}.</span>
+                    <input
+                      type="text"
+                      value={option.text}
+                      onChange={(e) => updateOption(index, e.target.value)}
+                      placeholder={`Option ${index + 1}`}
+                      className="flex-1 border-b border-gray-300 pb-1 outline-none focus:border-blue-500 bg-transparent"
+                    />
+                    {options.length > 1 && (
+                      <button
+                        onClick={() => removeOption(index)}
+                        className="text-gray-400 hover:text-red-500 p-1"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Option Image Section */}
+                  <div className="ml-6">
+                    <ImageUpload
+                      imageUrl={option.imageUrl}
+                      onImageUpload={(imageUrl) => updateOptionImage(index, imageUrl)}
+                      onImageRemove={() => updateOptionImage(index, undefined)}
+                    />
+                  </div>
                 </div>
               ))}
               <button
@@ -405,6 +464,17 @@ export default function QuestionCard({
 
           {/* Bottom toolbar */}
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
+            {/* Required toggle */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">Required</span>
+              <button
+                onClick={() => setRequired(!required)}
+                className={`transition-colors ${required ? 'text-blue-600' : 'text-gray-400'}`}
+              >
+                {required ? <ToggleRight className="w-8 h-5" /> : <ToggleLeft className="w-8 h-5" />}
+              </button>
+            </div>
+            
             <div className="flex items-center space-x-2">
               {/* Action buttons */}
               <button
@@ -443,10 +513,10 @@ export default function QuestionCard({
                     />
                     
                     {/* Menu Content - Smart positioning to avoid overflow */}
-                    <div className={`absolute right-0 w-72 bg-white rounded-lg shadow-xl border border-gray-100 z-40 max-h-96 overflow-y-auto ${
+                    <div className={`absolute left-0 w-72 bg-white rounded-lg shadow-xl border border-gray-100 z-40 max-h-96 overflow-y-auto ${
                       menuPosition === 'top' 
-                        ? 'bottom-full mb-2 origin-bottom-right' 
-                        : 'top-full mt-2 origin-top-right'
+                        ? 'bottom-full mb-2 origin-bottom-left' 
+                        : 'top-full mt-2 origin-top-left'
                     }`}
                          style={{ 
                            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
@@ -525,17 +595,6 @@ export default function QuestionCard({
                 )}
               </div>
             </div>
-            
-            {/* Required toggle */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Required</span>
-              <button
-                onClick={() => setRequired(!required)}
-                className={`transition-colors ${required ? 'text-blue-600' : 'text-gray-400'}`}
-              >
-                {required ? <ToggleRight className="w-8 h-5" /> : <ToggleLeft className="w-8 h-5" />}
-              </button>
-            </div>
           </div>
 
           {/* Quiz Configuration */}
@@ -564,29 +623,29 @@ export default function QuestionCard({
                   </p>
                   <div className="space-y-2">
                     {options.map((option, index) => (
-                      option.trim() && (
+                      option.text.trim() && (
                         <label key={index} className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type={questionType === 'MULTIPLE_CHOICE' ? 'radio' : 'checkbox'}
                             name={`correct-${id}`}
-                            value={option}
-                            checked={correctAnswers.includes(option)}
+                            value={option.text}
+                            checked={correctAnswers.includes(option.text)}
                             onChange={(e) => {
                               if (questionType === 'MULTIPLE_CHOICE') {
                                 // Single selection for multiple choice
-                                setCorrectAnswers([option]); // Always set to the clicked option
+                                setCorrectAnswers([option.text]); // Always set to the clicked option
                               } else {
                                 // Multiple selection for checkboxes
                                 if (e.target.checked) {
-                                  setCorrectAnswers([...correctAnswers, option]);
+                                  setCorrectAnswers([...correctAnswers, option.text]);
                                 } else {
-                                  setCorrectAnswers(correctAnswers.filter(ans => ans !== option));
+                                  setCorrectAnswers(correctAnswers.filter(ans => ans !== option.text));
                                 }
                               }
                             }}
                             className="w-4 h-4 text-blue-600 border-blue-300 focus:ring-blue-500"
                           />
-                          <span className="text-sm text-blue-800">{option}</span>
+                          <span className="text-sm text-blue-800">{option.text}</span>
                         </label>
                       )
                     ))}

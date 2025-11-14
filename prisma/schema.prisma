@@ -55,8 +55,18 @@ model Form {
   allowResponseEditing   Boolean    @default(false)
   editTimeLimit          String     @default("24h") // "always", "24h", "7d", "30d"
   
-  questions              Question[]
+  sections               Section[]
   responses              Response[]
+}
+
+model Section {
+  id          String     @id @map("_id") @default(auto()) @db.ObjectId
+  title       String     @default("Untitled Section")
+  description String?    // Optional description for the section
+  order       Int        @default(0) // Order of section in form (0, 1, 2, ...)
+  formId      String     @db.ObjectId
+  form        Form       @relation(fields: [formId], references: [id])
+  questions   Question[]
 }
 
 model Question {
@@ -65,8 +75,8 @@ model Question {
   description String?      // Optional description for the question
   type        QuestionType
   required    Boolean      @default(false)
-  formId      String       @db.ObjectId
-  form        Form         @relation(fields: [formId], references: [id])
+  sectionId   String       @db.ObjectId
+  section     Section      @relation(fields: [sectionId], references: [id])
   
   // Image field for question
   imageUrl    String?      // Optional image URL for the question

@@ -29,16 +29,21 @@ export async function GET(request: NextRequest) {
         published: true,
         acceptingResponses: true,
         createdAt: true,
-        questions: {
-          take: 3, // Only first 3 questions for preview
+        sections: {
           select: {
             id: true,
-            text: true,
-            type: true,
-            required: true,
-            options: {
+            questions: {
+              take: 3, // Only first 3 questions for preview
               select: {
-                text: true
+                id: true,
+                text: true,
+                type: true,
+                required: true,
+                options: {
+                  select: {
+                    text: true
+                  }
+                }
               }
             }
           }

@@ -18,9 +18,13 @@ export async function POST(
     const form = await prisma.form.findUnique({
       where: { id: formId },
       include: {
-        questions: {
+        sections: {
           include: {
-            options: true
+            questions: {
+              include: {
+                options: true
+              }
+            }
           }
         }
       }
@@ -57,7 +61,8 @@ export async function POST(
     // using localStorage. For logged-in users, you could add server-side validation here.
     
     // Validate required fields
-    const requiredQuestions = form.questions.filter(q => q.required);
+    const allQuestions = form.sections.flatMap(section => section.questions);
+    const requiredQuestions = allQuestions.filter(q => q.required);
     for (const question of requiredQuestions) {
       const response = responses[question.id];
       if (!response || 
@@ -105,7 +110,7 @@ export async function POST(
       console.log('answerData is array:', Array.isArray(answerData));
       
       // Find the question to determine its type
-      const question = form.questions.find(q => q.id === questionId);
+      const question = allQuestions.find(q => q.id === questionId);
       if (!question) {
         console.log(`Question ${questionId} not found!`);
         return null;

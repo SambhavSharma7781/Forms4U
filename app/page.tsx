@@ -13,13 +13,16 @@ interface UserForm {
   description: string | null;
   published: boolean;
   createdAt: string;
-  questions: {
+  sections: {
     id: string;
-    text: string;
-    type: string;
-    required: boolean;
-    options: {
+    questions: {
+      id: string;
       text: string;
+      type: string;
+      required: boolean;
+      options: {
+        text: string;
+      }[];
     }[];
   }[];
 }
@@ -237,7 +240,8 @@ export default function Dashboard() {
 
                         {/* Questions summary */}
                         <div className="space-y-2">
-                          {form.questions.slice(0, 3).map((question, index) => (
+                          {form.sections && form.sections.length > 0 && 
+                           form.sections.flatMap(section => section.questions).slice(0, 3).map((question, index) => (
                             <div key={question.id} className="flex items-start space-x-2">
                               <span className="text-xs text-gray-400 mt-0.5">{index + 1}.</span>
                               <div className="flex-1 min-w-0">
@@ -275,11 +279,11 @@ export default function Dashboard() {
                             </div>
                           ))}
                           
-                          {form.questions.length > 3 && (
+                          {form.sections && form.sections.flatMap(section => section.questions).length > 3 && (
                             <div className="flex items-center space-x-2 pt-1">
                               <span className="text-xs text-gray-400">...</span>
                               <span className="text-xs text-gray-400">
-                                {form.questions.length - 3} more questions
+                                {form.sections.flatMap(section => section.questions).length - 3} more questions
                               </span>
                             </div>
                           )}

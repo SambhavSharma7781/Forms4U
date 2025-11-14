@@ -67,26 +67,46 @@ export async function PUT(
         await tx.option.deleteMany({
           where: {
             question: {
-              formId: formId
+              section: {
+                formId: formId
+              }
             }
           }
         });
 
         // 2. Then delete questions
         await tx.question.deleteMany({
+          where: { 
+            section: {
+              formId: formId
+            }
+          }
+        });
+
+        // 3. Then delete sections
+        await tx.section.deleteMany({
           where: { formId: formId }
         });
 
-        // Create new questions and options
+        // Create default section and new questions
+        const defaultSection = await tx.section.create({
+          data: {
+            title: "Section 1",
+            description: null,
+            order: 0,
+            formId: formId
+          }
+        });
+
         for (const question of questions) {
           const createdQuestion = await tx.question.create({
             data: {
               text: question.text,
-              description: question.description || null, // Add description field
+              description: question.description || null,
               type: question.type,
               required: question.required,
-              imageUrl: question.imageUrl || null, // Add imageUrl field
-              formId: formId
+              imageUrl: question.imageUrl || null,
+              sectionId: defaultSection.id
             }
           });
 
@@ -107,9 +127,13 @@ export async function PUT(
         // More sophisticated question editing with response preservation can be added later
         console.log('Form has existing responses - preserving questions and answers');
         
-        // Get existing questions to check if they match
+        // Get existing questions to check if they match (through sections)
         const existingQuestions = await tx.question.findMany({
-          where: { formId: formId },
+          where: { 
+            section: {
+              formId: formId
+            }
+          },
           include: { options: true },
           orderBy: { id: 'asc' }
         });
@@ -180,14 +204,31 @@ export async function PUT(
           } else {
             // New question (temp ID) - create it
             console.log('Creating new question for form with responses:', newQuestion.text);
+            
+            // Get or create default section
+            let defaultSection = await tx.section.findFirst({
+              where: { formId: formId }
+            });
+            
+            if (!defaultSection) {
+              defaultSection = await tx.section.create({
+                data: {
+                  title: "Section 1",
+                  description: null,
+                  order: 0,
+                  formId: formId
+                }
+              });
+            }
+            
             const createdQuestion = await tx.question.create({
               data: {
                 text: newQuestion.text,
-                description: newQuestion.description || null, // Add description field
+                description: newQuestion.description || null,
                 type: newQuestion.type,
                 required: newQuestion.required,
-                imageUrl: newQuestion.imageUrl || null, // Add imageUrl field
-                formId: formId
+                imageUrl: newQuestion.imageUrl || null,
+                sectionId: defaultSection.id
               }
             });
 

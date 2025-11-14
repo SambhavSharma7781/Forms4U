@@ -27,6 +27,14 @@ interface Question {
   correctAnswers?: string[];
 }
 
+interface Section {
+  id: string;
+  title: string;
+  description?: string;
+  order: number;
+  questions: Question[];
+}
+
 interface FormData {
   id: string;
   title: string;
@@ -41,13 +49,18 @@ interface FormData {
   isQuiz?: boolean;
   showCorrectAnswers?: boolean;
   releaseGrades?: boolean;
-  questions: Question[];
+  sections: Section[];
 }
 
 // Response data type
 interface FormResponse {
   [questionId: string]: string | string[]; // string for single answer, string[] for checkboxes
 }
+
+// Helper function to get all questions from sections
+const getAllQuestionsFromSections = (sections: Section[]): Question[] => {
+  return sections.flatMap(section => section.questions);
+};
 
 export default function PublicFormView() {
   const params = useParams();
@@ -309,8 +322,11 @@ export default function PublicFormView() {
           formTitle: data.form.title
         });
         
+        // Get all questions from sections
+        const allQuestions = getAllQuestionsFromSections(data.form.sections || []);
+        
         // Debug specific to image options
-        console.log('🖼️ DEBUG: Form questions and options:', data.form.questions.map((q: any) => ({
+        console.log('🖼️ DEBUG: Form questions and options:', allQuestions.map((q: any) => ({
           id: q.id,
           type: q.type,
           text: q.text?.substring(0, 50),
@@ -323,7 +339,7 @@ export default function PublicFormView() {
         })));
         
         // Process questions with option shuffling if needed
-        const processedQuestions = data.form.questions.map((question: Question) => {
+        const processedQuestions = allQuestions.map((question: Question) => {
           // For preview mode, don't shuffle anything
           if (isPreview) {
             return question;

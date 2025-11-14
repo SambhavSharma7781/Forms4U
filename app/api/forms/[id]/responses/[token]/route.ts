@@ -22,9 +22,13 @@ export async function GET(
         answers: true,
         form: {
           include: {
-            questions: {
+            sections: {
               include: {
-                options: true
+                questions: {
+                  include: {
+                    options: true
+                  }
+                }
               }
             }
           }
@@ -72,7 +76,28 @@ export async function GET(
         description: response.form.description,
         allowResponseEditing: response.form.allowResponseEditing,
         editTimeLimit: response.form.editTimeLimit,
-        questions: response.form.questions
+        sections: response.form.sections.map(section => ({
+          id: section.id,
+          title: section.title,
+          description: section.description,
+          order: section.order,
+          questions: section.questions.map(question => ({
+            id: question.id,
+            text: question.text,
+            description: question.description,
+            type: question.type,
+            required: question.required,
+            imageUrl: question.imageUrl,
+            points: question.points,
+            correctAnswers: question.correctAnswers,
+            shuffleOptionsOrder: question.shuffleOptionsOrder,
+            options: question.options.map(option => ({
+              id: option.id,
+              text: option.text,
+              imageUrl: option.imageUrl
+            }))
+          }))
+        }))
       },
       response: {
         id: response.id,
@@ -112,7 +137,11 @@ export async function PUT(
       include: {
         form: {
           include: {
-            questions: true
+            sections: {
+              include: {
+                questions: true
+              }
+            }
           }
         },
         answers: true
@@ -151,7 +180,8 @@ export async function PUT(
     }
 
     // Validate required fields
-    const requiredQuestions = responseRecord.form.questions.filter(q => q.required);
+    const allQuestions = responseRecord.form.sections.flatMap(section => section.questions);
+    const requiredQuestions = allQuestions.filter(q => q.required);
     for (const question of requiredQuestions) {
       const response = responses[question.id];
       if (!response || 

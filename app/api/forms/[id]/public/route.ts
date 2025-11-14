@@ -16,9 +16,13 @@ export async function GET(
         published: true // Only allow access to published forms
       },
       include: {
-        questions: {
+        sections: {
           include: {
-            options: true
+            questions: {
+              include: {
+                options: true
+              }
+            }
           }
         }
       }
@@ -51,22 +55,28 @@ export async function GET(
         // Response editing settings (needed for response handling)
         allowResponseEditing: form.allowResponseEditing,
         editTimeLimit: form.editTimeLimit,
-        questions: form.questions.map(question => ({
-          id: question.id,
-          text: question.text,
-          description: question.description, // <-- Add description field
-          type: question.type,
-          required: question.required,
-          imageUrl: question.imageUrl, // Add image URL field
-          // Quiz fields
-          points: question.points,
-          correctAnswers: question.correctAnswers,
-          // Option settings
-          shuffleOptionsOrder: question.shuffleOptionsOrder,
-          options: question.options.map(option => ({
-            id: option.id,
-            text: option.text,
-            imageUrl: option.imageUrl
+        sections: form.sections.map(section => ({
+          id: section.id,
+          title: section.title,
+          description: section.description,
+          order: section.order,
+          questions: section.questions.map(question => ({
+            id: question.id,
+            text: question.text,
+            description: question.description,
+            type: question.type,
+            required: question.required,
+            imageUrl: question.imageUrl,
+            // Quiz fields
+            points: question.points,
+            correctAnswers: question.correctAnswers,
+            // Option settings
+            shuffleOptionsOrder: question.shuffleOptionsOrder,
+            options: question.options.map(option => ({
+              id: option.id,
+              text: option.text,
+              imageUrl: option.imageUrl
+            }))
           }))
         }))
       }

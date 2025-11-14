@@ -24,6 +24,14 @@ interface Question {
   correctAnswers?: string[];
 }
 
+interface Section {
+  id: string;
+  title: string;
+  description: string | null;
+  order: number;
+  questions: Question[];
+}
+
 interface FormData {
   id: string;
   title: string;
@@ -40,7 +48,7 @@ interface FormData {
   isQuiz?: boolean;
   showCorrectAnswers?: boolean;
   releaseGrades?: boolean;
-  questions: Question[];
+  sections: Section[];
 }
 
 interface Answer {
@@ -76,7 +84,7 @@ export default function Form() {
     description: '',
     published: false,
     acceptingResponses: true,
-    questions: []
+    sections: []
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -129,6 +137,50 @@ export default function Form() {
 
   // Check if this is an existing form or new form
   const isExistingForm = formId !== 'create';
+
+  // Helper function to get all questions from sections (flattened)
+  const getAllQuestions = (sections: Section[]): Question[] => {
+    if (!sections || sections.length === 0) return [];
+    return sections.flatMap(section => section.questions || []);
+  };
+
+  // Helper function to update a question in sections
+  const updateQuestionInSections = (sections: Section[], questionId: string, updateFn: (question: Question) => Question): Section[] => {
+    return sections.map(section => ({
+      ...section,
+      questions: section.questions.map(q => q.id === questionId ? updateFn(q) : q)
+    }));
+  };
+
+  // Helper function to add a question to the first section (or create section if none exist)
+  const addQuestionToSections = (sections: Section[], newQuestion: Question): Section[] => {
+    if (!sections || sections.length === 0) {
+      // Create default section if none exist
+      return [{
+        id: `section_${Date.now()}`,
+        title: 'Section 1',
+        description: null,
+        order: 0,
+        questions: [newQuestion]
+      }];
+    }
+    
+    // Add to first section
+    const updatedSections = [...sections];
+    updatedSections[0] = {
+      ...updatedSections[0],
+      questions: [...(updatedSections[0].questions || []), newQuestion]
+    };
+    return updatedSections;
+  };
+
+  // Helper function to remove a question from sections
+  const removeQuestionFromSections = (sections: Section[], questionId: string): Section[] => {
+    return sections.map(section => ({
+      ...section,
+      questions: section.questions.filter(q => q.id !== questionId)
+    }));
+  };
 
   // Auto-disable response editing when quiz mode is enabled
   useEffect(() => {
@@ -361,15 +413,19 @@ export default function Form() {
       return true;
     }
     
+    // Get flattened questions from sections for comparison
+    const currentQuestions = getAllQuestions(formData.sections || []);
+    const originalQuestions = getAllQuestions(originalFormData.sections || []);
+    
     // Compare questions count
-    if (formData.questions.length !== originalFormData.questions.length) {
+    if (currentQuestions.length !== originalQuestions.length) {
       return true;
     }
     
     // Compare each question
-    for (let i = 0; i < formData.questions.length; i++) {
-      const currentQ = formData.questions[i];
-      const originalQ = originalFormData.questions[i];
+    for (let i = 0; i < currentQuestions.length; i++) {
+      const currentQ = currentQuestions[i];
+      const originalQ = originalQuestions[i];
       
       if (!originalQ) {
         return true; // New question
@@ -404,8 +460,8 @@ export default function Form() {
       
       // Compare options for questions that have them
       // Filter empty options for consistent comparison with QuestionCard filtering
-      const currentOptions = currentQ.options?.filter(opt => opt.text.trim() !== "") || [];
-      const originalOptions = originalQ.options?.filter(opt => opt.text.trim() !== "") || [];
+      const currentOptions = currentQ.options?.filter((opt: any) => opt.text.trim() !== "") || [];
+      const originalOptions = originalQ.options?.filter((opt: any) => opt.text.trim() !== "") || [];
       
       if (currentOptions.length !== originalOptions.length) {
         return true;
@@ -440,10 +496,11 @@ export default function Form() {
   };
 
   const updateQuestion = (questionId: string, field: string, value: any) => {
-    const updatedQuestions = formData.questions.map((q: any) => 
-      q.id === questionId ? { ...q, [field]: value } : q
-    );
-    setFormData({ ...formData, questions: updatedQuestions });
+    const updatedSections = updateQuestionInSections(formData.sections || [], questionId, (question: Question) => ({
+      ...question,
+      [field]: value
+    }));
+    setFormData({ ...formData, sections: updatedSections });
   };
 
   const addQuestion = () => {
@@ -455,19 +512,20 @@ export default function Form() {
       options: [],
       imageUrl: '' // Initialize imageUrl field
     };
-    setFormData({
-      ...formData,
-      questions: [...formData.questions, newQuestion]
-    });
+    
+    const updatedSections = addQuestionToSections(formData.sections || [], newQuestion);
+    setFormData({ ...formData, sections: updatedSections });
   };
 
   const deleteQuestion = (questionId: string) => {
-    const updatedQuestions = formData.questions.filter((q: any) => q.id !== questionId);
-    setFormData({ ...formData, questions: updatedQuestions });
+    const updatedSections = removeQuestionFromSections(formData.sections || [], questionId);
+    setFormData({ ...formData, sections: updatedSections });
   };
 
   const duplicateQuestion = (questionId: string) => {
-    const questionToDuplicate = formData.questions.find((q: any) => q.id === questionId);
+    const allQuestions = getAllQuestions(formData.sections || []);
+    const questionToDuplicate = allQuestions.find((q: any) => q.id === questionId);
+    
     if (questionToDuplicate) {
       const duplicatedQuestion = {
         ...questionToDuplicate,
@@ -477,29 +535,26 @@ export default function Form() {
           id: `temp_${Date.now()}_${Math.random()}`
         }))
       };
-      setFormData({
-        ...formData,
-        questions: [...formData.questions, duplicatedQuestion]
-      });
+      
+      const updatedSections = addQuestionToSections(formData.sections || [], duplicatedQuestion);
+      setFormData({ ...formData, sections: updatedSections });
     }
   };
 
   const addOption = (questionId: string) => {
-    const updatedQuestions = formData.questions.map((q: any) =>
-      q.id === questionId
-        ? { ...q, options: [...q.options, { id: `temp_${Date.now()}`, text: '' }] }
-        : q
-    );
-    setFormData({ ...formData, questions: updatedQuestions });
+    const updatedSections = updateQuestionInSections(formData.sections || [], questionId, (question: Question) => ({
+      ...question,
+      options: [...question.options, { id: `temp_${Date.now()}`, text: '' }]
+    }));
+    setFormData({ ...formData, sections: updatedSections });
   };
 
   const removeOption = (questionId: string, optionId: string) => {
-    const updatedQuestions = formData.questions.map((q: any) =>
-      q.id === questionId
-        ? { ...q, options: q.options.filter((opt: any) => opt.id !== optionId) }
-        : q
-    );
-    setFormData({ ...formData, questions: updatedQuestions });
+    const updatedSections = updateQuestionInSections(formData.sections || [], questionId, (question: Question) => ({
+      ...question,
+      options: question.options.filter((opt: any) => opt.id !== optionId)
+    }));
+    setFormData({ ...formData, sections: updatedSections });
   };
 
   const saveForm = async (forcePublished?: boolean) => {
@@ -516,11 +571,14 @@ export default function Form() {
         : (forcePublished !== undefined ? forcePublished : false);
       
       // Create payload with correct published status and proper data structure
+      const allQuestions = getAllQuestions(formData.sections || []);
       const payload = {
         title: formData.title,
         description: formData.description,
         published: publishedStatus,
-        questions: formData.questions.map(q => ({
+        sections: formData.sections || [],
+        // Legacy support - also include flattened questions
+        questions: allQuestions.map((q: any) => ({
           id: q.id, // Include question ID for existing questions
           question: q.text, // API expects 'question' field
           text: q.text, // Also send as 'text' for compatibility
@@ -538,7 +596,7 @@ export default function Form() {
       };
       
       console.log('🚀 SAVING FORM - Full payload:', JSON.stringify(payload, null, 2));
-      console.log('🚀 Questions with descriptions:', payload.questions.map(q => ({ id: q.id, text: q.text, description: q.description })));
+      console.log('🚀 Questions with descriptions:', payload.questions.map((q: any) => ({ id: q.id, text: q.text, description: q.description })));
       
       const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
@@ -773,9 +831,9 @@ export default function Form() {
             </div>
             
             {/* Total Points Display */}
-            {formSettings.isQuiz && formData.questions.length > 0 && (
+            {formSettings.isQuiz && getAllQuestions(formData.sections || []).length > 0 && (
               <div className="text-sm text-gray-600 px-6">
-                Total points: {formData.questions.reduce((total, q) => total + (q.points || 1), 0)}
+                Total points: {getAllQuestions(formData.sections || []).reduce((total: number, q: any) => total + (q.points || 1), 0)}
               </div>
             )}
           </div>
@@ -835,7 +893,8 @@ export default function Form() {
 
             {/* Questions Section - Using Original QuestionCard */}
             <div className="space-y-0">
-              {formData.questions.map((question: any, index: number) => (
+              {formData.sections && formData.sections.length > 0 &&
+               formData.sections.flatMap(section => section.questions).map((question: any, index: number) => (
                 <QuestionCard
                   key={question.id}
                   id={question.id}
@@ -853,30 +912,33 @@ export default function Form() {
                   onDelete={() => deleteQuestion(question.id)}
                   onDuplicate={() => duplicateQuestion(question.id)}
                   onUpdate={(data) => {
-                    // Update the question with new data
-                    const updatedQuestions = formData.questions.map((q: any) =>
-                      q.id === question.id
-                        ? {
-                            ...q,
-                            text: data.question,
-                            description: data.description, // ✅ ADD THIS - WAS MISSING!
-                            type: data.type,
-                            required: data.required,
-                            shuffleOptionsOrder: data.shuffleOptionsOrder,
-                            imageUrl: data.imageUrl, // Add image URL to the update
-                            options: data.options.map((opt: any, idx: number) => ({
-                              id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
-                              text: opt.text,
-                              imageUrl: opt.imageUrl
-                            })),
-                            // Quiz fields
-                            points: data.points,
-                            correctAnswers: data.correctAnswers
-                          }
-                        : q
-                    );
+                    // Update the question with new data - sections aware
+                    const updatedSections = formData.sections.map(section => ({
+                      ...section,
+                      questions: section.questions.map((q: any) =>
+                        q.id === question.id
+                          ? {
+                              ...q,
+                              text: data.question,
+                              description: data.description,
+                              type: data.type,
+                              required: data.required,
+                              shuffleOptionsOrder: data.shuffleOptionsOrder,
+                              imageUrl: data.imageUrl,
+                              options: data.options.map((opt: any, idx: number) => ({
+                                id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
+                                text: opt.text,
+                                imageUrl: opt.imageUrl
+                              })),
+                              // Quiz fields
+                              points: data.points,
+                              correctAnswers: data.correctAnswers
+                            }
+                          : q
+                      )
+                    }));
                     
-                    setFormData({ ...formData, questions: updatedQuestions });
+                    setFormData({ ...formData, sections: updatedSections });
                   }}
                 />
               ))}

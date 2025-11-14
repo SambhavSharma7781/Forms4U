@@ -59,34 +59,72 @@ export async function POST(request: NextRequest) {
         releaseGrades: settings?.releaseGrades ?? true,
         // Response editing settings (automatically disabled if quiz mode)
         allowResponseEditing: (settings?.isQuiz ? false : (settings?.allowResponseEditing || false)),
-        editTimeLimit: settings?.editTimeLimit || '24h',
-        questions: {
-          create: questions.map((question: any, index: number) => ({
-            text: question.question || question.text, // Handle both properties
-            description: question.description || null, // Add description field
+        editTimeLimit: settings?.editTimeLimit || '24h'
+      }
+    });
+
+    // Create questions for the form
+    if (questions && questions.length > 0) {
+      // First create a default section for the questions
+      const defaultSection = await prisma.section.create({
+        data: {
+          title: "Section 1",
+          description: null,
+          order: 0,
+          formId: form.id
+        }
+      });
+
+      // Create questions for the default section
+      for (const question of questions) {
+        const createdQuestion = await prisma.question.create({
+          data: {
+            text: question.question || question.text,
+            description: question.description || null,
             type: question.type,
             required: question.required || false,
-            imageUrl: question.imageUrl || null, // Add image URL field
-            // Quiz fields
+            imageUrl: question.imageUrl || null,
+            sectionId: defaultSection.id, // Link to section instead of form
             points: question.points || 1,
             correctAnswers: question.correctAnswers || [],
-            // Option settings
-            shuffleOptionsOrder: question.shuffleOptionsOrder || false,
-            options: question.options
-              ? {
-                  create: question.options.map((option: any, optionIndex: number) => ({
-                    text: typeof option === 'string' ? option : option.text,
-                    imageUrl: typeof option === 'string' ? null : (option.imageUrl || null)
-                  }))
-                }
-              : undefined
-          }))
+            shuffleOptionsOrder: question.shuffleOptionsOrder || false
+          }
+        });
+
+        // Create options for the question if they exist
+        if (question.options && question.options.length > 0) {
+          await prisma.option.createMany({
+            data: question.options.map((option: any) => ({
+              text: typeof option === 'string' ? option : option.text,
+              imageUrl: typeof option === 'string' ? null : (option.imageUrl || null),
+              questionId: createdQuestion.id
+            }))
+          });
         }
-      },
+      }
+    } else {
+      // Even if no questions, create a default empty section
+      await prisma.section.create({
+        data: {
+          title: "Section 1",
+          description: null,
+          order: 0,
+          formId: form.id
+        }
+      });
+    }
+
+    // Fetch the complete form with sections, questions and options
+    const completeForm = await prisma.form.findUnique({
+      where: { id: form.id },
       include: {
-        questions: {
+        sections: {
           include: {
-            options: true
+            questions: {
+              include: {
+                options: true
+              }
+            }
           }
         }
       }

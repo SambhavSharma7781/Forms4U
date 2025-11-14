@@ -98,6 +98,52 @@ export default function PublicFormView() {
   const [canEdit, setCanEdit] = useState(false);
   const [editExpiresAt, setEditExpiresAt] = useState<Date | null>(null);
 
+  // 🆕 Section Navigation States (Safe Addition - No Impact on Existing Code)
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [sectionProgress, setSectionProgress] = useState({
+    current: 1,
+    total: 0
+  });
+
+  // 🆕 Section Navigation Helper Functions (Safe - Inside Component)
+  const getCurrentSection = (): Section | null => {
+    if (!formData || !formData.sections.length) return null;
+    return formData.sections[currentSectionIndex] || null;
+  };
+
+  const isFirstSection = currentSectionIndex === 0;
+  const isLastSection = formData ? currentSectionIndex === (formData.sections.length - 1) : false;
+
+  const goToNextSection = () => {
+    if (formData && currentSectionIndex < formData.sections.length - 1) {
+      setCurrentSectionIndex(prev => prev + 1);
+      updateProgress(currentSectionIndex + 2, formData.sections.length);
+    }
+  };
+
+  const goToPreviousSection = () => {
+    if (currentSectionIndex > 0) {
+      setCurrentSectionIndex(prev => prev - 1);
+      if (formData) {
+        updateProgress(currentSectionIndex, formData.sections.length);
+      }
+    }
+  };
+
+  const updateProgress = (current: number, total: number) => {
+    setSectionProgress({ current, total });
+  };
+
+  const getProgressPercentage = () => {
+    if (!formData?.sections.length) return 0;
+    return Math.round(((currentSectionIndex + 1) / formData.sections.length) * 100);
+  };
+
+  const shouldUseSectionView = () => {
+    // Safe check - only use section view if form has multiple sections
+    return formData && formData.sections && formData.sections.length > 1;
+  };
+
   // Check if user has submitted this form before
   const checkPreviousSubmission = () => {
     const submittedForms = JSON.parse(localStorage.getItem('submittedForms') || '[]');
@@ -315,6 +361,12 @@ export default function PublicFormView() {
       
       if (data.success) {
         setFormData(data.form);
+        
+        // 🆕 Initialize section progress (Safe Addition)
+        if (data.form.sections && data.form.sections.length > 0) {
+          updateProgress(1, data.form.sections.length);
+        }
+        
         console.log('📋 Form loaded:', {
           isQuiz: data.form.isQuiz,
           showCorrectAnswers: data.form.showCorrectAnswers,
@@ -1025,6 +1077,17 @@ export default function PublicFormView() {
               </div>
             </div>
 
+            {/* 🆕 Section Progress Indicator (Safe Addition - Only Shows for Multi-Section Forms) */}
+            {shouldUseSectionView() && (
+              <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
+                <div className="flex items-center justify-center">
+                  <span className="text-sm text-gray-600 font-medium">
+                    Section {currentSectionIndex + 1} of {formData.sections.length}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Email Field */}
             {formData?.collectEmail && (
               <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
@@ -1061,88 +1124,216 @@ export default function PublicFormView() {
             )}
 
             {/* Questions */}
-        <div className="space-y-6">
-          {shuffledQuestions.map((question, index) => (
-            <div key={question.id} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="mb-4">
-                <h3 className="text-lg font-medium text-gray-800 mb-1">
-                  {index + 1}. <span 
-                    className="[&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
-                    dangerouslySetInnerHTML={{ __html: question.text }}
-                    onClick={(e) => {
-                      const target = e.target as HTMLElement;
-                      if (target.tagName === 'A') {
-                        e.preventDefault();
-                        window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
-                      }
-                    }}
-                  />
-                  {question.required && <span className="text-red-500 ml-1">*</span>}
-                </h3>
-                
-                {/* Display Question Description */}
-                {question.description && (
-                  <p className="text-sm text-gray-600 mt-2 mb-3">{question.description}</p>
-                )}
-                
-                {/* Display Question Image */}
-                {question.imageUrl && (
-                  <div className="mb-4">
-                    <img 
-                      src={question.imageUrl} 
-                      alt="Question image" 
-                      className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
-                      style={{ maxHeight: '400px' }}
-                    />
+            {shouldUseSectionView() ? (
+              // 🆕 Section-Based Rendering (Google Forms Style)
+              <>
+                {getCurrentSection() && (
+                  <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+                    {/* Section Header */}
+                    <div className="mb-6 border-b border-gray-200 pb-4">
+                      <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                        {getCurrentSection()!.title}
+                      </h2>
+                      {getCurrentSection()!.description && (
+                        <p className="text-gray-600">
+                          {getCurrentSection()!.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Section Questions */}
+                    <div className="space-y-6">
+                      {getCurrentSection()!.questions.map((question, index) => {
+                        // Find the question index across all sections for proper numbering
+                        const allQuestions = getAllQuestionsFromSections(formData.sections);
+                        const globalIndex = allQuestions.findIndex(q => q.id === question.id);
+                        
+                        return (
+                          <div key={question.id}>
+                            <div className="mb-4">
+                              <h3 className="text-lg font-medium text-gray-800 mb-1">
+                                {globalIndex + 1}. <span 
+                                  className="[&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                                  dangerouslySetInnerHTML={{ __html: question.text }}
+                                  onClick={(e) => {
+                                    const target = e.target as HTMLElement;
+                                    if (target.tagName === 'A') {
+                                      e.preventDefault();
+                                      window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                                    }
+                                  }}
+                                />
+                                {question.required && <span className="text-red-500 ml-1">*</span>}
+                              </h3>
+                              
+                              {/* Question Description */}
+                              {question.description && (
+                                <p className="text-sm text-gray-600 mt-2 mb-3">{question.description}</p>
+                              )}
+                              
+                              {/* Question Image */}
+                              {question.imageUrl && (
+                                <div className="mt-3 mb-4">
+                                  <img 
+                                    src={question.imageUrl} 
+                                    alt="Question image" 
+                                    className="max-w-md h-auto rounded-lg border border-gray-200"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {renderQuestion(question)}
+                            
+                            {/* Error message */}
+                            {errors[question.id] && (
+                              <p className="mt-2 text-sm text-red-600">{errors[question.id]}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
+              </>
+            ) : (
+              // 🔄 Original Rendering (Fallback for Single Section or Legacy Forms)
+              <div className="space-y-6">
+                {shuffledQuestions.map((question, index) => (
+                  <div key={question.id} className="bg-white rounded-lg shadow-sm p-6">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-medium text-gray-800 mb-1">
+                        {index + 1}. <span 
+                          className="[&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                          dangerouslySetInnerHTML={{ __html: question.text }}
+                          onClick={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (target.tagName === 'A') {
+                              e.preventDefault();
+                              window.open((target as HTMLAnchorElement).href, '_blank', 'noopener,noreferrer');
+                            }
+                          }}
+                        />
+                        {question.required && <span className="text-red-500 ml-1">*</span>}
+                      </h3>
+                      
+                      {/* Display Question Description */}
+                      {question.description && (
+                        <p className="text-sm text-gray-600 mt-2 mb-3">{question.description}</p>
+                      )}
+                      
+                      {/* Display Question Image */}
+                      {question.imageUrl && (
+                        <div className="mt-3 mb-4">
+                          <img 
+                            src={question.imageUrl} 
+                            alt="Question image" 
+                            className="max-w-md h-auto rounded-lg border border-gray-200"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {renderQuestion(question)}
+                    
+                    {/* Error message */}
+                    {errors[question.id] && (
+                      <p className="mt-2 text-sm text-red-600">{errors[question.id]}</p>
+                    )}
+                  </div>
+                ))}
               </div>
-              
-              {renderQuestion(question)}
-              
-              {/* Error message */}
-              {errors[question.id] && (
-                <p className="mt-2 text-sm text-red-600">{errors[question.id]}</p>
-              )}
-            </div>
-          ))}
-        </div>
+            )}
 
             {/* Action Buttons with Integrated Progress */}
             <div className="mt-8 flex justify-between items-center">
-              {/* Clear Form Button */}
-              <Button
-                onClick={isPreviewMode ? undefined : handleClearForm}
-                variant="outline"
-                disabled={isPreviewMode || (!formData.allowMultipleResponses && hasSubmittedBefore)}
-                className={`text-gray-600 border-gray-300 ${(isPreviewMode || (!formData.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
-              >
-                Clear Form
-              </Button>
-              
-              {/* Progress Bar in Center */}
-              {formData?.showProgress && (
-                <div className="flex items-center space-x-3">
-                  <div className="w-24 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                      style={{ width: `${calculateProgress()}%` }}
-                    ></div>
-                  </div>
-                  <span className="text-sm text-gray-600 font-medium">{calculateProgress()}%</span>
-                </div>
+              {shouldUseSectionView() ? (
+                // 🆕 Section Navigation Buttons (Google Forms Style)
+                <>
+                  {/* Previous Button */}
+                  <Button
+                    onClick={goToPreviousSection}
+                    disabled={isFirstSection}
+                    variant="outline"
+                    className={`${isFirstSection ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'} text-gray-600 border-gray-300`}
+                  >
+                    ← Previous
+                  </Button>
+
+                  {/* Clear Form Button (Middle) */}
+                  <Button
+                    onClick={isPreviewMode ? undefined : handleClearForm}
+                    variant="outline"
+                    disabled={isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
+                    className={`text-gray-600 border-gray-300 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  >
+                    Clear Form
+                  </Button>
+
+                  {/* Next/Submit Button */}
+                  {isLastSection ? (
+                    <Button
+                      onClick={isPreviewMode ? undefined : handleSubmit}
+                      disabled={submitting || isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isPreviewMode ? 'Submit Form (Preview Only)' : 
+                       (!formData?.allowMultipleResponses && hasSubmittedBefore) ? 'Already Submitted' :
+                       (submitting ? 'Submitting...' : 'Submit Form')}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={goToNextSection}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                    >
+                      Next →
+                    </Button>
+                  )}
+                </>
+              ) : (
+                // 🔄 Original Action Buttons (Fallback for Single Section Forms)
+                <>
+                  {/* Clear Form Button */}
+                  <Button
+                    onClick={isPreviewMode ? undefined : handleClearForm}
+                    variant="outline"
+                    disabled={isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
+                    className={`text-gray-600 border-gray-300 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                  >
+                    Clear Form
+                  </Button>
+                  
+                  {/* Progress Bar in Center */}
+                  {formData?.showProgress && (
+                    <div className="flex items-center space-x-3">
+                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ width: `${calculateProgress()}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm text-gray-600 font-medium">{calculateProgress()}%</span>
+                    </div>
+                  )}
+                  
+                  {/* Submit Button */}
+                  <Button
+                    onClick={isPreviewMode ? undefined : handleSubmit}
+                    disabled={submitting || isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isPreviewMode ? 'Submit Form (Preview Only)' : 
+                     (!formData?.allowMultipleResponses && hasSubmittedBefore) ? 'Already Submitted' :
+                     (submitting ? 'Submitting...' : 'Submit')}
+                  </Button>
+                </>
               )}
-              
-              {/* Submit Button */}
-              <Button
-                onClick={isPreviewMode ? undefined : handleSubmit}
-                disabled={submitting || isPreviewMode || (!formData.allowMultipleResponses && hasSubmittedBefore)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isPreviewMode ? 'Submit Form (Preview Only)' : 
-                 (!formData.allowMultipleResponses && hasSubmittedBefore) ? 'Already Submitted' :
-                 (submitting ? 'Submitting...' : 'Submit')}
-              </Button>
             </div>
 
             {/* Preview Mode Message */}

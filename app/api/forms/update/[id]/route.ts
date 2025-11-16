@@ -27,6 +27,7 @@ export async function PUT(
       sections: sections?.map((s: any) => ({
         id: s.id,
         title: s.title,
+        description: s.description,
         questionsCount: s.questions?.length || 0
       })) || 'No sections',
       legacyQuestionsCount: questions?.length || 0
@@ -194,9 +195,23 @@ export async function PUT(
         }
       } else {
         // If responses exist, we need to be more careful to preserve existing data
-        // For now, we'll only allow updating form title, description, and status
-        // More sophisticated question editing with response preservation can be added later
-        console.log('Form has existing responses - preserving questions and answers');
+        // We can still update section titles and descriptions safely
+        console.log('Form has existing responses - preserving questions and answers, but updating section metadata');
+        
+        // Update section titles and descriptions (safe to update without affecting responses)
+        if (sections && sections.length > 0) {
+          for (const sectionData of sections) {
+            if (sectionData.id && sectionData.id !== 'temp_section_1763318223615') { // Skip temp IDs
+              await tx.section.update({
+                where: { id: sectionData.id },
+                data: {
+                  title: sectionData.title || 'Untitled Section',
+                  description: sectionData.description || null
+                }
+              });
+            }
+          }
+        }
         
         // Get existing questions to check if they match (through sections)
         const existingQuestions = await tx.question.findMany({

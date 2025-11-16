@@ -328,7 +328,13 @@ export default function Form() {
       const response = await fetch(`/api/forms/${formId}`);
       const data = await response.json();
       
-      if (data.success) {
+    if (data.success) {
+        console.log('🔍 FETCHED FORM DATA - Sections:', data.form.sections?.map((s: any) => ({
+          title: s.title,
+          description: s.description,
+          questionsCount: s.questions?.length || 0
+        })));
+        
         setFormData(data.form);
         setOriginalFormData(data.form); // Store original data for comparison
         
@@ -421,6 +427,26 @@ export default function Form() {
     // Compare form settings (including quiz settings)
     if (hasUnsavedSettingsChanges()) {
       return true;
+    }
+    
+    // Compare sections (title, description, count)
+    if (formData.sections.length !== originalFormData.sections.length) {
+      return true;
+    }
+    
+    for (let i = 0; i < formData.sections.length; i++) {
+      const currentSection = formData.sections[i];
+      const originalSection = originalFormData.sections[i];
+      
+      if (!originalSection) {
+        return true; // New section
+      }
+      
+      // Compare section title and description
+      if (currentSection.title !== originalSection.title ||
+          (currentSection.description || '') !== (originalSection.description || '')) {
+        return true;
+      }
     }
     
     // Get flattened questions from sections for comparison
@@ -647,7 +673,11 @@ export default function Form() {
       };
       
       console.log('🚀 SAVING FORM - Full payload:', JSON.stringify(payload, null, 2));
-      console.log('🚀 Questions with descriptions:', payload.questions.map((q: any) => ({ id: q.id, text: q.text, description: q.description })));
+      console.log('🚀 Sections being saved:', payload.sections?.map((s: any) => ({
+        title: s.title,
+        description: s.description,
+        questionsCount: s.questions?.length || 0
+      })));
       
       const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
@@ -947,13 +977,21 @@ export default function Form() {
               {formData.sections && formData.sections.length > 0 ? (
                 formData.sections.map((section, sectionIndex) => (
                   <div key={section.id} className="space-y-0">
-                    {/* Section Header - Simple and Clean */}
+                    {/* Section Header with Lines */}
                     {formData.sections.length > 1 && (
-                      <div className="mb-6 pb-4 border-b-2 border-blue-100">
-                        <div className="flex items-center space-x-3">
+                      <div className="mb-6">
+                        {/* Section Number */}
+                        <div className="mb-3">
                           <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
                             Section {sectionIndex + 1}
                           </span>
+                        </div>
+                        
+                        {/* Top Line */}
+                        <div className="border-t-2 border-blue-100 mb-4"></div>
+                        
+                        {/* Section Title */}
+                        <div className="mb-3">
                           <input
                             type="text"
                             value={section.title === `Section ${sectionIndex + 1}` ? '' : section.title}
@@ -966,9 +1004,31 @@ export default function Form() {
                               setFormData({ ...formData, sections: updatedSections });
                             }}
                             placeholder={`Section ${sectionIndex + 1} Title`}
-                            className="text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-3 py-1 transition-colors flex-1 placeholder-gray-400"
+                            className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-3 py-1 transition-colors placeholder-gray-400"
                           />
                         </div>
+                        
+                        {/* Section Description */}
+                        <div className="mb-4">
+                          <textarea
+                            value={section.description || ''}
+                            onChange={(e) => {
+                              const updatedSections = [...formData.sections];
+                              updatedSections[sectionIndex] = {
+                                ...updatedSections[sectionIndex],
+                                description: e.target.value || null
+                              };
+                              setFormData({ ...formData, sections: updatedSections });
+                            }}
+                            placeholder="Section description (optional)"
+                            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-3 py-2 transition-colors resize-none placeholder-gray-400"
+                            rows={2}
+                            style={{ minHeight: '24px' }}
+                          />
+                        </div>
+                        
+                        {/* Bottom Line */}
+                        <div className="border-b-2 border-blue-100 mb-4"></div>
                       </div>
                     )}
                     

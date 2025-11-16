@@ -45,6 +45,12 @@ export async function GET(
       );
     }
 
+    console.log('🔍 FETCHING FORM - Sections from DB:', form.sections?.map((s: any) => ({
+      title: s.title,
+      description: s.description,
+      questionsCount: s.questions?.length || 0
+    })));
+
     return NextResponse.json({
       success: true,
       form: {

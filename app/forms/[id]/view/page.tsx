@@ -1139,7 +1139,7 @@ export default function PublicFormView() {
                 {getCurrentSection() && (
                   <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
                     {/* Section Header - Show for all sections */}
-                    {(formData.sections.length > 1 || getCurrentSection()!.title !== 'Section 1') && (
+                    {(formData.sections.length > 1 || getCurrentSection()!.title !== 'Section 1' || getCurrentSection()!.description) && (
                       <div className="mb-6 border-b border-gray-200 pb-4">
                         <h2 className="text-xl font-semibold text-gray-800 mb-2">
                           {getCurrentSection()!.title}

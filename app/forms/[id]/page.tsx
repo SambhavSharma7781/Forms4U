@@ -152,8 +152,8 @@ export default function Form() {
     }));
   };
 
-  // Helper function to add a question to the first section (or create section if none exist)
-  const addQuestionToSections = (sections: Section[], newQuestion: Question): Section[] => {
+  // Helper function to add a question to a specific section (or create section if none exist)
+  const addQuestionToSections = (sections: Section[], newQuestion: Question, sectionId?: string): Section[] => {
     if (!sections || sections.length === 0) {
       // Create default section if none exist
       return [{
@@ -165,11 +165,21 @@ export default function Form() {
       }];
     }
     
-    // Add to first section
+    // If sectionId is provided, add to that specific section
+    if (sectionId) {
+      return sections.map(section => 
+        section.id === sectionId 
+          ? { ...section, questions: [...(section.questions || []), newQuestion] }
+          : section
+      );
+    }
+    
+    // Default: Add to last section
     const updatedSections = [...sections];
-    updatedSections[0] = {
-      ...updatedSections[0],
-      questions: [...(updatedSections[0].questions || []), newQuestion]
+    const lastSectionIndex = updatedSections.length - 1;
+    updatedSections[lastSectionIndex] = {
+      ...updatedSections[lastSectionIndex],
+      questions: [...(updatedSections[lastSectionIndex].questions || []), newQuestion]
     };
     return updatedSections;
   };
@@ -514,6 +524,47 @@ export default function Form() {
     };
     
     const updatedSections = addQuestionToSections(formData.sections || [], newQuestion);
+    setFormData({ ...formData, sections: updatedSections });
+  };
+
+  const addSectionAfter = (questionId: string) => {
+    if (!formData.sections) return;
+
+    // Find which section contains this question
+    let targetSectionIndex = -1;
+    formData.sections.forEach((section, index) => {
+      if (section.questions.some(q => q.id === questionId)) {
+        targetSectionIndex = index;
+      }
+    });
+
+    if (targetSectionIndex === -1) return;
+
+    // Create new section
+    const newSection: Section = {
+      id: `temp_section_${Date.now()}`,
+      title: `Section ${formData.sections.length + 1}`,
+      description: null,
+      order: targetSectionIndex + 1,
+      questions: [{
+        id: `temp_${Date.now()}`,
+        text: '',
+        type: 'SHORT_ANSWER',
+        required: formSettings.defaultRequired,
+        options: [],
+        imageUrl: ''
+      }]
+    };
+
+    // Insert the new section after the target section
+    const updatedSections = [...formData.sections];
+    updatedSections.splice(targetSectionIndex + 1, 0, newSection);
+
+    // Update order values for sections after the insertion point
+    updatedSections.forEach((section, index) => {
+      section.order = index;
+    });
+
     setFormData({ ...formData, sections: updatedSections });
   };
 
@@ -891,70 +942,143 @@ export default function Form() {
               </div>
             </div>
 
-            {/* Questions Section - Using Original QuestionCard */}
-            <div className="space-y-0">
-              {formData.sections && formData.sections.length > 0 &&
-               formData.sections.flatMap(section => section.questions).map((question: any, index: number) => (
-                <QuestionCard
-                  key={question.id}
-                  id={question.id}
-                  initialQuestion={question.text}
-                  initialDescription={question.description || ""} // Pass description to QuestionCard
-                  initialType={question.type}
-                  initialRequired={question.required}
-                  initialOptions={question.options || []}
-                  initialShuffleOptionsOrder={question.shuffleOptionsOrder || false}
-                  initialImageUrl={question.imageUrl || ""}
-                  // Quiz props
-                  isQuiz={formSettings.isQuiz}
-                  initialPoints={question.points || 1}
-                  initialCorrectAnswers={question.correctAnswers || []}
-                  onDelete={() => deleteQuestion(question.id)}
-                  onDuplicate={() => duplicateQuestion(question.id)}
-                  onUpdate={(data) => {
-                    // Update the question with new data - sections aware
-                    const updatedSections = formData.sections.map(section => ({
-                      ...section,
-                      questions: section.questions.map((q: any) =>
-                        q.id === question.id
-                          ? {
-                              ...q,
-                              text: data.question,
-                              description: data.description,
-                              type: data.type,
-                              required: data.required,
-                              shuffleOptionsOrder: data.shuffleOptionsOrder,
-                              imageUrl: data.imageUrl,
-                              options: data.options.map((opt: any, idx: number) => ({
-                                id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
-                                text: opt.text,
-                                imageUrl: opt.imageUrl
-                              })),
-                              // Quiz fields
-                              points: data.points,
-                              correctAnswers: data.correctAnswers
-                            }
-                          : q
-                      )
-                    }));
+            {/* Questions Section - Section-wise Display */}
+            <div className="space-y-6">
+              {formData.sections && formData.sections.length > 0 ? (
+                formData.sections.map((section, sectionIndex) => (
+                  <div key={section.id} className="space-y-0">
+                    {/* Section Header - Simple and Clean */}
+                    {formData.sections.length > 1 && (
+                      <div className="mb-6 pb-4 border-b-2 border-blue-100">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                            Section {sectionIndex + 1}
+                          </span>
+                          <input
+                            type="text"
+                            value={section.title === `Section ${sectionIndex + 1}` ? '' : section.title}
+                            onChange={(e) => {
+                              const updatedSections = [...formData.sections];
+                              updatedSections[sectionIndex] = {
+                                ...updatedSections[sectionIndex],
+                                title: e.target.value || `Section ${sectionIndex + 1}`
+                              };
+                              setFormData({ ...formData, sections: updatedSections });
+                            }}
+                            placeholder={`Section ${sectionIndex + 1} Title`}
+                            className="text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-3 py-1 transition-colors flex-1 placeholder-gray-400"
+                          />
+                        </div>
+                      </div>
+                    )}
                     
-                    setFormData({ ...formData, sections: updatedSections });
-                  }}
-                />
-              ))}
+                    {/* Questions in this Section */}
+                    {section.questions.map((question: any) => (
+                      <QuestionCard
+                        key={question.id}
+                        id={question.id}
+                        initialQuestion={question.text}
+                        initialDescription={question.description || ""}
+                        initialType={question.type}
+                        initialRequired={question.required}
+                        initialOptions={question.options || []}
+                        initialShuffleOptionsOrder={question.shuffleOptionsOrder || false}
+                        initialImageUrl={question.imageUrl || ""}
+                        // Quiz props
+                        isQuiz={formSettings.isQuiz}
+                        initialPoints={question.points || 1}
+                        initialCorrectAnswers={question.correctAnswers || []}
+                        onDelete={() => deleteQuestion(question.id)}
+                        onDuplicate={() => duplicateQuestion(question.id)}
+                        onAddSectionAfter={() => addSectionAfter(question.id)}
+                        onUpdate={(data) => {
+                          // Update the question with new data - sections aware
+                          const updatedSections = formData.sections.map(sec => ({
+                            ...sec,
+                            questions: sec.questions.map((q: any) =>
+                              q.id === question.id
+                                ? {
+                                    ...q,
+                                    text: data.question,
+                                    description: data.description,
+                                    type: data.type,
+                                    required: data.required,
+                                    shuffleOptionsOrder: data.shuffleOptionsOrder,
+                                    imageUrl: data.imageUrl,
+                                    options: data.options.map((opt: any, idx: number) => ({
+                                      id: question.options[idx]?.id || `temp_${Date.now()}_${idx}`,
+                                      text: opt.text,
+                                      imageUrl: opt.imageUrl
+                                    })),
+                                    // Quiz fields
+                                    points: data.points,
+                                    correctAnswers: data.correctAnswers
+                                  }
+                                : q
+                            )
+                          }));
+                          
+                          setFormData({ ...formData, sections: updatedSections });
+                        }}
+                      />
+                    ))}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No questions yet. Add your first question below.
+                </div>
+              )}
 
-              {/* Add Question Button */}
-              <div className="mb-6">
-                <button 
-                  onClick={addQuestion}
-                  className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <span>Add Question</span>
-                </button>
-              </div>
+              {/* Add Question Buttons for Each Section */}
+              {formData.sections && formData.sections.length > 0 && (
+                <div className="mb-6">
+                  {formData.sections.map((section, sectionIndex) => (
+                    <div key={section.id} className="mb-4">
+                      <button 
+                        onClick={() => {
+                          const newQuestion: Question = {
+                            id: `temp_${Date.now()}`,
+                            text: '',
+                            type: 'SHORT_ANSWER',
+                            required: formSettings.defaultRequired,
+                            options: [],
+                            imageUrl: ''
+                          };
+                          const updatedSections = addQuestionToSections(formData.sections || [], newQuestion, section.id);
+                          setFormData({ ...formData, sections: updatedSections });
+                        }}
+                        className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        <span>
+                          {formData.sections.length > 1 
+                            ? `Add Question to Section ${sectionIndex + 1}` 
+                            : 'Add Question'
+                          }
+                        </span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Default Add Question Button for empty forms */}
+              {(!formData.sections || formData.sections.length === 0) && (
+                <div className="mb-6">
+                  <button 
+                    onClick={addQuestion}
+                    className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    <span>Add Question</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Actions */}

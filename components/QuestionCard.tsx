@@ -34,6 +34,7 @@ interface QuestionCardProps {
   initialCorrectAnswers?: string[];
   onDelete?: () => void;
   onDuplicate?: () => void;
+  onAddSectionAfter?: () => void; // 🆕 NEW: Add section after this question
   onUpdate?: (data: {
     id: string;
     question: string;
@@ -62,6 +63,7 @@ export default function QuestionCard({
   initialCorrectAnswers = [],
   onDelete,
   onDuplicate,
+  onAddSectionAfter, // 🆕 NEW: Add section callback
   onUpdate
 }: QuestionCardProps) {
   const [question, setQuestion] = useState(initialQuestion);
@@ -586,6 +588,33 @@ export default function QuestionCard({
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                               </svg>
                             )}
+                          </div>
+                        </button>
+                      </div>
+                      
+                      {/* 🆕 Section Management */}
+                      <div className="py-2 border-t border-gray-100">
+                        <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                          Section Management
+                        </div>
+                        
+                        <button
+                          onClick={() => {
+                            onAddSectionAfter?.();
+                            setShowOptionsMenu(false);
+                          }}
+                          className="w-full flex items-center justify-between px-3 py-3 text-sm text-gray-700 hover:bg-green-50 transition-all duration-150 group"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className="p-1.5 rounded-md bg-gray-100 text-gray-500 group-hover:bg-green-100 group-hover:text-green-600 transition-colors">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <div className="font-medium">Add Section After This</div>
+                              <div className="text-xs text-gray-500 mt-0.5">Create a new section after this question</div>
+                            </div>
                           </div>
                         </button>
                       </div>

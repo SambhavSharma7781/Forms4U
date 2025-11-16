@@ -140,8 +140,14 @@ export default function PublicFormView() {
   };
 
   const shouldUseSectionView = () => {
-    // Safe check - only use section view if form has multiple sections
-    return formData && formData.sections && formData.sections.length > 1;
+    // Show section view if form has any sections (even single section)
+    return formData && formData.sections && formData.sections.length >= 1;
+  };
+
+  // Helper function to get all questions from sections
+  const getAllQuestionsFromSections = (sections: Section[]): any[] => {
+    if (!sections || sections.length === 0) return [];
+    return sections.flatMap(section => section.questions || []);
   };
 
   // Check if user has submitted this form before
@@ -1077,12 +1083,15 @@ export default function PublicFormView() {
               </div>
             </div>
 
-            {/* 🆕 Section Progress Indicator (Safe Addition - Only Shows for Multi-Section Forms) */}
+            {/* 🆕 Section Progress Indicator (Shows for all section-based forms) */}
             {shouldUseSectionView() && (
               <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
                 <div className="flex items-center justify-center">
                   <span className="text-sm text-gray-600 font-medium">
-                    Section {currentSectionIndex + 1} of {formData.sections.length}
+                    {formData.sections.length > 1 
+                      ? `Section ${currentSectionIndex + 1} of ${formData.sections.length}`
+                      : getCurrentSection()?.title || 'Section 1'
+                    }
                   </span>
                 </div>
               </div>
@@ -1129,17 +1138,19 @@ export default function PublicFormView() {
               <>
                 {getCurrentSection() && (
                   <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-                    {/* Section Header */}
-                    <div className="mb-6 border-b border-gray-200 pb-4">
-                      <h2 className="text-xl font-semibold text-gray-800 mb-2">
-                        {getCurrentSection()!.title}
-                      </h2>
-                      {getCurrentSection()!.description && (
-                        <p className="text-gray-600">
-                          {getCurrentSection()!.description}
-                        </p>
-                      )}
-                    </div>
+                    {/* Section Header - Show for all sections */}
+                    {(formData.sections.length > 1 || getCurrentSection()!.title !== 'Section 1') && (
+                      <div className="mb-6 border-b border-gray-200 pb-4">
+                        <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                          {getCurrentSection()!.title}
+                        </h2>
+                        {getCurrentSection()!.description && (
+                          <p className="text-gray-600">
+                            {getCurrentSection()!.description}
+                          </p>
+                        )}
+                      </div>
+                    )}
 
                     {/* Section Questions */}
                     <div className="space-y-6">
@@ -1253,8 +1264,8 @@ export default function PublicFormView() {
 
             {/* Action Buttons with Integrated Progress */}
             <div className="mt-8 flex justify-between items-center">
-              {shouldUseSectionView() ? (
-                // 🆕 Section Navigation Buttons (Google Forms Style)
+              {shouldUseSectionView() && formData.sections.length > 1 ? (
+                // 🆕 Section Navigation Buttons (Google Forms Style) - For Multi-Section Forms
                 <>
                   {/* Previous Button */}
                   <Button
@@ -1297,7 +1308,7 @@ export default function PublicFormView() {
                   )}
                 </>
               ) : (
-                // 🔄 Original Action Buttons (Fallback for Single Section Forms)
+                // 🔄 Standard Submit Buttons (For Single Section or Legacy Forms)
                 <>
                   {/* Clear Form Button */}
                   <Button
@@ -1310,7 +1321,7 @@ export default function PublicFormView() {
                   </Button>
                   
                   {/* Progress Bar in Center */}
-                  {formData?.showProgress && (
+                  {formData?.showProgress && !shouldUseSectionView() && (
                     <div className="flex items-center space-x-3">
                       <div className="w-24 bg-gray-200 rounded-full h-2">
                         <div 

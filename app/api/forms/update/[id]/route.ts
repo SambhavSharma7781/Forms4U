@@ -19,13 +19,18 @@ export async function PUT(
 
     const { id: formId } = await params;
     const body = await request.json();
-    const { title, description, questions, published = false, acceptingResponses = true } = body;
+    const { title, description, questions, sections, published = false, acceptingResponses = true, settings } = body;
     
-    console.log('🔴 API UPDATE - Received questions:', questions.map((q: any) => ({ 
-      id: q.id, 
-      text: q.text || q.question, 
-      description: q.description 
-    })));
+    console.log('🔴 API UPDATE - Received data:', {
+      title,
+      sectionsCount: sections?.length || 0,
+      sections: sections?.map((s: any) => ({
+        id: s.id,
+        title: s.title,
+        questionsCount: s.questions?.length || 0
+      })) || 'No sections',
+      legacyQuestionsCount: questions?.length || 0
+    });
 
     // Verify form ownership
     const existingForm = await prisma.form.findFirst({
@@ -49,19 +54,33 @@ export async function PUT(
 
     // Update form in transaction
     await prisma.$transaction(async (tx) => {
-      // Update form title, description, published status, and accepting responses
+      // Update form title, description, published status, accepting responses, and settings
       await tx.form.update({
         where: { id: formId },
         data: {
           title,
           description,
           published,
-          acceptingResponses
+          acceptingResponses,
+          // Update form settings if provided
+          ...(settings && {
+            shuffleQuestions: settings.shuffleQuestions || false,
+            collectEmail: settings.collectEmail || false,
+            allowMultipleResponses: settings.allowMultipleResponses ?? true,
+            showProgress: settings.showProgress ?? true,
+            confirmationMessage: settings.confirmationMessage || 'Your response has been recorded.',
+            defaultRequired: settings.defaultRequired || false,
+            isQuiz: settings.isQuiz || false,
+            showCorrectAnswers: settings.showCorrectAnswers ?? true,
+            releaseGrades: settings.releaseGrades ?? true,
+            allowResponseEditing: (settings.isQuiz ? false : (settings.allowResponseEditing || false)),
+            editTimeLimit: settings.editTimeLimit || '24h'
+          })
         }
       });
 
       if (!hasResponses) {
-        // If no responses exist, we can safely delete and recreate questions/options
+        // If no responses exist, we can safely delete and recreate all data
         // Delete existing data in correct order (due to foreign key constraints)
         // 1. Delete options first
         await tx.option.deleteMany({
@@ -88,37 +107,89 @@ export async function PUT(
           where: { formId: formId }
         });
 
-        // Create default section and new questions
-        const defaultSection = await tx.section.create({
-          data: {
-            title: "Section 1",
-            description: null,
-            order: 0,
-            formId: formId
-          }
-        });
+        // Handle sections or legacy questions
+        if (sections && sections.length > 0) {
+          // Create sections with their questions
+          for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+            const sectionData = sections[sectionIndex];
+            
+            const createdSection = await tx.section.create({
+              data: {
+                title: sectionData.title || `Section ${sectionIndex + 1}`,
+                description: sectionData.description || null,
+                order: sectionIndex,
+                formId: formId
+              }
+            });
 
-        for (const question of questions) {
-          const createdQuestion = await tx.question.create({
+            // Create questions for this section
+            if (sectionData.questions && sectionData.questions.length > 0) {
+              for (const question of sectionData.questions) {
+                const createdQuestion = await tx.question.create({
+                  data: {
+                    text: question.text || '',
+                    description: question.description || null,
+                    type: question.type || 'SHORT_ANSWER',
+                    required: question.required || false,
+                    imageUrl: question.imageUrl || null,
+                    sectionId: createdSection.id,
+                    points: question.points || 1,
+                    correctAnswers: question.correctAnswers || [],
+                    shuffleOptionsOrder: question.shuffleOptionsOrder || false
+                  }
+                });
+
+                // Create options for the question if they exist
+                if (question.options && question.options.length > 0) {
+                  await tx.option.createMany({
+                    data: question.options
+                      .filter((opt: any) => opt.text?.trim()) // Only save options with text
+                      .map((option: any) => ({
+                        text: option.text,
+                        imageUrl: option.imageUrl || null,
+                        questionId: createdQuestion.id
+                      }))
+                  });
+                }
+              }
+            }
+          }
+        } else if (questions && questions.length > 0) {
+          // Legacy: Create questions with default section (for backward compatibility)
+          const defaultSection = await tx.section.create({
             data: {
-              text: question.text,
-              description: question.description || null,
-              type: question.type,
-              required: question.required,
-              imageUrl: question.imageUrl || null,
-              sectionId: defaultSection.id
+              title: "Section 1",
+              description: null,
+              order: 0,
+              formId: formId
             }
           });
 
-          // Create options if question type requires them
-          if ((question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES' || question.type === 'DROPDOWN') && question.options.length > 0) {
-            await tx.option.createMany({
-              data: question.options.map((option: any) => ({
-                text: typeof option === 'string' ? option : option.text,
-                imageUrl: typeof option === 'string' ? null : (option.imageUrl || null),
-                questionId: createdQuestion.id
-              }))
+          for (const question of questions) {
+            const createdQuestion = await tx.question.create({
+              data: {
+                text: question.text,
+                description: question.description || null,
+                type: question.type,
+                required: question.required,
+                imageUrl: question.imageUrl || null,
+                sectionId: defaultSection.id,
+                points: question.points || 1,
+                correctAnswers: question.correctAnswers || [],
+                shuffleOptionsOrder: question.shuffleOptionsOrder || false
+              }
             });
+
+            // Create options if question type requires them
+            if ((question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES' || question.type === 'DROPDOWN') && question.options.length > 0) {
+              await tx.option.createMany({
+                data: question.options.map((option: any) => ({
+                  text: typeof option === 'string' ? option : option.text,
+                  imageUrl: typeof option === 'string' ? null : (option.imageUrl || null),
+                  questionId: createdQuestion.id
+                }))
+              });
+            }
           }
         }
       } else {

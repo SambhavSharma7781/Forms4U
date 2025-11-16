@@ -16,8 +16,17 @@ export async function POST(request: NextRequest) {
 
     // Get data from request
     const data = await request.json();
-    const { title, description, questions, published = false, settings } = data;
+    const { title, description, questions, sections, published = false, settings } = data;
     
+    console.log('🟢 CREATE API - Received data:', {
+      title,
+      sectionsCount: sections?.length || 0,
+      sections: sections?.map((s: any) => ({
+        id: s.id,
+        title: s.title,
+        questionsCount: s.questions?.length || 0
+      })) || 'No sections'
+    });
 
 
     // Create or find user in our database
@@ -63,9 +72,55 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Create questions for the form
-    if (questions && questions.length > 0) {
-      // First create a default section for the questions
+    // Create sections and questions for the form
+    if (sections && sections.length > 0) {
+      // Create sections with their questions
+      for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+        const sectionData = sections[sectionIndex];
+        
+        const createdSection = await prisma.section.create({
+          data: {
+            title: sectionData.title || `Section ${sectionIndex + 1}`,
+            description: sectionData.description || null,
+            order: sectionIndex,
+            formId: form.id
+          }
+        });
+
+        // Create questions for this section
+        if (sectionData.questions && sectionData.questions.length > 0) {
+          for (const question of sectionData.questions) {
+            const createdQuestion = await prisma.question.create({
+              data: {
+                text: question.text || '',
+                description: question.description || null,
+                type: question.type || 'SHORT_ANSWER',
+                required: question.required || false,
+                imageUrl: question.imageUrl || null,
+                sectionId: createdSection.id,
+                points: question.points || 1,
+                correctAnswers: question.correctAnswers || [],
+                shuffleOptionsOrder: question.shuffleOptionsOrder || false
+              }
+            });
+
+            // Create options for the question if they exist
+            if (question.options && question.options.length > 0) {
+              await prisma.option.createMany({
+                data: question.options
+                  .filter((opt: any) => opt.text?.trim()) // Only save options with text
+                  .map((option: any) => ({
+                    text: option.text,
+                    imageUrl: option.imageUrl || null,
+                    questionId: createdQuestion.id
+                  }))
+              });
+            }
+          }
+        }
+      }
+    } else if (questions && questions.length > 0) {
+      // Legacy: Create questions with default section (for backward compatibility)
       const defaultSection = await prisma.section.create({
         data: {
           title: "Section 1",
@@ -84,7 +139,7 @@ export async function POST(request: NextRequest) {
             type: question.type,
             required: question.required || false,
             imageUrl: question.imageUrl || null,
-            sectionId: defaultSection.id, // Link to section instead of form
+            sectionId: defaultSection.id,
             points: question.points || 1,
             correctAnswers: question.correctAnswers || [],
             shuffleOptionsOrder: question.shuffleOptionsOrder || false
@@ -103,7 +158,7 @@ export async function POST(request: NextRequest) {
         }
       }
     } else {
-      // Even if no questions, create a default empty section
+      // Create a default empty section
       await prisma.section.create({
         data: {
           title: "Section 1",

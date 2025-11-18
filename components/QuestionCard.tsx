@@ -100,23 +100,6 @@ export default function QuestionCard({
     if (onUpdate && id) {
       const filteredOptions = options.filter(opt => opt.text.trim() !== "" || opt.imageUrl);
       
-      console.log('📤 NOTIFY PARENT:', {
-        questionId: id,
-        type: questionType,
-        originalOptionsCount: options.length,
-        filteredOptionsCount: filteredOptions.length,
-        question: question.slice(0, 30) + '...',
-        allOptions: options.map(opt => ({
-          text: opt.text || '[EMPTY]',
-          hasImage: !!opt.imageUrl,
-          willBeFiltered: !(opt.text.trim() !== "" || opt.imageUrl)
-        })),
-        filteredOptions: filteredOptions.map(opt => ({
-          text: opt.text || '[EMPTY]',
-          hasImage: !!opt.imageUrl
-        }))
-      });
-      
       onUpdate({
         id,
         question,

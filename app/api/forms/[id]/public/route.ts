@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/services/prisma';
 
-// GET: Public form data (no authentication required)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -9,7 +8,6 @@ export async function GET(
   try {
     const { id: formId } = await params;
 
-    // Fetch form with questions and options (PUBLIC ACCESS)
     const form = await prisma.form.findUnique({
       where: {
         id: formId,

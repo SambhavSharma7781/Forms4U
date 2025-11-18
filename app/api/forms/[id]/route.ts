@@ -19,7 +19,6 @@ export async function GET(
 
     const { id: formId } = await params;
 
-    // Fetch form with questions and options
     const form = await prisma.form.findFirst({
       where: {
         id: formId,

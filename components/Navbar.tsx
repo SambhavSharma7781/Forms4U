@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth, UserButton, SignInButton } from "@clerk/nextjs";
 import SearchBar from "./SearchBar";
 
-// Global event system for navbar actions
 const navbarEvents = {
   publishForm: [] as (() => void)[],
   unpublishForm: [] as (() => void)[],
@@ -26,7 +25,6 @@ const navbarEvents = {
   }
 };
 
-// Global form status for navbar
 let currentFormStatus = { published: false, acceptingResponses: true, formId: '', title: '' };
 
 export { navbarEvents };
@@ -73,7 +71,6 @@ export default function Navbar() {
     }
   }, [isFormEditPage, isCreatePage]);
 
-  // Get button text and actions based on page and status
   const getPublishButton = () => {
     if (isCreatePage) {
       return (

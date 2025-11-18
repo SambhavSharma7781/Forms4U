@@ -37,7 +37,6 @@ export default function Dashboard() {
   const [newTitle, setNewTitle] = useState<string>('');
   const [showFab, setShowFab] = useState(false);
 
-  // Fetch user's forms when component loads
   useEffect(() => {
     if (isLoaded) {
       if (isSignedIn) {
@@ -135,7 +134,6 @@ export default function Dashboard() {
         setNewTitle('');
       }
     } catch (error) {
-      // Handle error silently
     }
   };
 

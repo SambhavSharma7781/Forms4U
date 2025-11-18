@@ -214,9 +214,9 @@ export default function CreateFormPage() {
           // Redirect to home page only when publishing
           window.location.href = '/';
         } else {
-          // Show saved animation for draft
-          setSaved(true);
-          setTimeout(() => setSaved(false), 2000); // Hide after 2 seconds
+          // For draft save, redirect to edit page to avoid form duplication
+          // This ensures the user can continue editing the same form
+          window.location.href = `/forms/${result.formId}`;
         }
       } else {
         alert('Error saving form: ' + (result.message || 'Unknown error'));

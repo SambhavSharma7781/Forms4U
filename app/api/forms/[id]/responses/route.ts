@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import prisma from '@/services/prisma';
 
-// GET: Fetch all responses for a form (owner only)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -81,7 +80,6 @@ export async function GET(
   }
 }
 
-// DELETE: Delete all responses for a form (owner only)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

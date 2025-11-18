@@ -13,13 +13,12 @@ import { navbarEvents } from '@/components/Navbar';
 interface Question {
   id: string;
   text: string;
-  description?: string; // Add description field for helper text
+  description?: string;
   type: 'SHORT_ANSWER' | 'PARAGRAPH' | 'MULTIPLE_CHOICE' | 'CHECKBOXES' | 'DROPDOWN';
   required: boolean;
   options: { id: string; text: string; imageUrl?: string; }[];
   shuffleOptionsOrder?: boolean;
-  imageUrl?: string; // Add image URL field
-  // Quiz fields
+  imageUrl?: string;
   points?: number;
   correctAnswers?: string[];
 }
@@ -44,7 +43,6 @@ interface FormData {
   showProgress?: boolean;
   confirmationMessage?: string;
   restrictToOrganization?: boolean;
-  // Quiz fields
   isQuiz?: boolean;
   showCorrectAnswers?: boolean;
   releaseGrades?: boolean;
@@ -77,7 +75,6 @@ export default function Form() {
   const { isSignedIn, isLoaded } = useAuth();
   const formId = params.id as string;
 
-  // Form editing states
   const [formData, setFormData] = useState<FormData>({
     id: '',
     title: 'Untitled form',
@@ -90,7 +87,6 @@ export default function Form() {
   const [saving, setSaving] = useState(false);
   const [loadingResponses, setLoadingResponses] = useState(false);
   
-  // Tab system states - Google Forms style
   const [activeTab, setActiveTab] = useState<'questions' | 'responses' | 'settings'>('questions');
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
   const [responseCount, setResponseCount] = useState(0);
@@ -135,7 +131,6 @@ export default function Form() {
     editTimeLimit: '24h'
   });
 
-  // Check if this is an existing form or new form
   const isExistingForm = formId !== 'create';
 
   // Helper function to get all questions from sections (flattened)
@@ -255,6 +250,19 @@ export default function Form() {
   // Listen for navbar publish button clicks
   useEffect(() => {
     const handleNavbarPublish = () => {
+      if (loading || !formData.id || !formData.sections || formData.sections.length === 0) {
+        alert('Please wait for the form to load completely before publishing');
+        return;
+      }
+      
+      const allQuestions = getAllQuestions(formData.sections || []);
+      const validQuestions = allQuestions.filter((q: any) => q.text && q.text.trim() !== '');
+      
+      if (validQuestions.length === 0) {
+        alert('Please add at least one question to publish this form');
+        return;
+      }
+      
       if (isExistingForm) {
         // For existing forms, can only publish if not already published
         if (!formData.published) {
@@ -286,7 +294,7 @@ export default function Form() {
       navbarEvents.unsubscribe('unpublishForm', handleNavbarUnpublish);
       navbarEvents.unsubscribe('toggleResponses', handleToggleResponses);
     };
-  }, [isExistingForm, formData.published]);
+  }, [isExistingForm, formData.published, formData.sections, formData.id, loading]);
 
   // Update navbar whenever formData changes - with proper timing
   useEffect(() => {
@@ -354,11 +362,6 @@ export default function Form() {
           allowResponseEditing: data.form.allowResponseEditing || false,
           editTimeLimit: data.form.editTimeLimit || '24h'
         };
-        console.log('🎯 Loaded quiz settings:', {
-          isQuiz: loadedSettings.isQuiz,
-          showCorrectAnswers: loadedSettings.showCorrectAnswers,
-          releaseGrades: loadedSettings.releaseGrades
-        });
         setFormSettings(loadedSettings);
         setOriginalSettings(loadedSettings);
         
@@ -449,7 +452,6 @@ export default function Form() {
       }
     }
     
-    // Get flattened questions from sections for comparison
     const currentQuestions = getAllQuestions(formData.sections || []);
     const originalQuestions = getAllQuestions(originalFormData.sections || []);
     
@@ -506,14 +508,6 @@ export default function Form() {
       for (let j = 0; j < currentOptions.length; j++) {
         if (currentOptions[j].text !== originalOptions[j].text ||
             (currentOptions[j].imageUrl || '') !== (originalOptions[j].imageUrl || '')) {
-          console.log('🔍 OPTION CONTENT MISMATCH:', {
-            questionIndex: i,
-            optionIndex: j,
-            currentText: currentOptions[j].text,
-            originalText: originalOptions[j].text,
-            currentImage: currentOptions[j].imageUrl,
-            originalImage: originalOptions[j].imageUrl
-          });
           return true;
         }
       }
@@ -546,7 +540,7 @@ export default function Form() {
       type: 'SHORT_ANSWER',
       required: formSettings.defaultRequired,
       options: [],
-      imageUrl: '' // Initialize imageUrl field
+      imageUrl: ''
     };
     
     const updatedSections = addQuestionToSections(formData.sections || [], newQuestion);
@@ -672,17 +666,8 @@ export default function Form() {
         settings: validateSettings(formSettings)
       };
       
-      console.log('🚀 SAVING FORM - Full payload:', JSON.stringify(payload, null, 2));
-      console.log('🚀 Sections being saved:', payload.sections?.map((s: any) => ({
-        title: s.title,
-        description: s.description,
-        questionsCount: s.questions?.length || 0
-      })));
-      
       const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
-      
-      console.log('🚀 API URL:', url, 'Method:', method);
       
       const response = await fetch(url, {
         method,
@@ -691,8 +676,6 @@ export default function Form() {
         },
         body: JSON.stringify(payload),
       });
-      
-      console.log('🚀 API Response status:', response.status);
 
       const data = await response.json();
       
@@ -777,6 +760,8 @@ export default function Form() {
         console.log('togglePublishStatus - Alert message:', message, 'newPublishedStatus:', newPublishedStatus);
       } else {
         console.error('togglePublishStatus - API error:', data);
+        // Show the API error message to the user
+        alert(data.error || 'Failed to update form status');
       }
     } catch (error) {
       console.error('Error toggling publish status:', error);

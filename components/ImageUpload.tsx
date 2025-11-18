@@ -21,12 +21,10 @@ export default function ImageUpload({ imageUrl, onImageUpload, onImageRemove }: 
     fileInputRef.current?.click(); // Programmatically click the hidden file input
   };
 
-  // Function that handles file selection and converts it to base64
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]; // Get the first selected file
     if (!file) return; // Exit if no file selected
 
-    // Check if file is an image
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
       return;
@@ -55,7 +53,7 @@ export default function ImageUpload({ imageUrl, onImageUpload, onImageRemove }: 
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        onChange={handleFileChange}
+        onChange={handleFileSelect}
         className="hidden"
       />
 

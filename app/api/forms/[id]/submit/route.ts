@@ -14,7 +14,6 @@ export async function POST(
 
 
 
-    // Validate that form exists
     const form = await prisma.form.findUnique({
       where: { id: formId },
       include: {
@@ -37,7 +36,6 @@ export async function POST(
       );
     }
 
-    // Validate email if collection is enabled
     if (form.collectEmail) {
       if (!email || !email.trim()) {
         return NextResponse.json(
@@ -60,7 +58,6 @@ export async function POST(
     // Note: For anonymous users, multiple response validation is handled on the frontend
     // using localStorage. For logged-in users, you could add server-side validation here.
     
-    // Validate required fields
     const allQuestions = form.sections.flatMap(section => section.questions);
     const requiredQuestions = allQuestions.filter(q => q.required);
     for (const question of requiredQuestions) {
@@ -75,17 +72,14 @@ export async function POST(
       }
     }
 
-    // Generate edit token if response editing is enabled
     let editToken = null;
     let editTokenExpiry = null;
     
     if (form.allowResponseEditing && !form.isQuiz) {
       editToken = generateEditToken();
       editTokenExpiry = calculateTokenExpiry(form.editTimeLimit || '24h');
-      console.log('Generated edit token for response editing');
     }
 
-    // Create response record (anonymous - no userId)
     const responseRecord = await prisma.response.create({
       data: {
         formId: formId,
@@ -100,23 +94,11 @@ export async function POST(
       }
     });
 
-    console.log('Created response record:', responseRecord.id);
-
-    // Create answer records for each question response
     const answerPromises = Object.entries(responses).map(async ([questionId, answerData]) => {
-      console.log(`\n=== Processing Question ${questionId} ===`);
-      console.log('Raw answerData:', answerData);
-      console.log('answerData type:', typeof answerData);
-      console.log('answerData is array:', Array.isArray(answerData));
-      
-      // Find the question to determine its type
       const question = allQuestions.find(q => q.id === questionId);
       if (!question) {
-        console.log(`Question ${questionId} not found!`);
         return null;
       }
-
-      console.log('Question type:', question.type);
 
       let answerText = null;
       let selectedOptions: string[] = [];

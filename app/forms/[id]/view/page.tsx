@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { formatTimeRemaining } from '@/lib/editToken';
 
-// Types
+
 interface Option {
   id: string;
   text: string;
@@ -380,11 +380,39 @@ export default function PublicFormView() {
           formTitle: data.form.title
         });
         
-        // Get all questions from sections
-        const allQuestions = getAllQuestionsFromSections(data.form.sections || []);
-        
-        // Debug specific to image options
-        console.log('🖼️ DEBUG: Form questions and options:', allQuestions.map((q: any) => ({
+        // Process sections and questions.
+        // - Shuffle options per-question when enabled
+        // - If `shuffleQuestions` is enabled, shuffle question order WITHIN each section (preserves sections)
+        const processedSections = (data.form.sections || []).map((section: Section) => {
+          const processedQuestions = (section.questions || []).map((question: Question) => {
+            // For preview mode, don't shuffle anything
+            if (isPreview) return question;
+
+            // Shuffle options if enabled for this question
+            if (question.shuffleOptionsOrder && 
+                (question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES' || question.type === 'DROPDOWN')) {
+              return {
+                ...question,
+                options: shuffleArray(question.options)
+              };
+            }
+
+            return question;
+          });
+
+          const finalQuestions = (data.form.shuffleQuestions && !isPreview)
+            ? shuffleArray(processedQuestions)
+            : processedQuestions;
+
+          return {
+            ...section,
+            questions: finalQuestions
+          };
+        });
+
+
+        const allQuestionsFlat = processedSections.flatMap((s: any) => s.questions || []);
+        console.log('🖼️ DEBUG: Form questions and options:', allQuestionsFlat.map((q: any) => ({
           id: q.id,
           type: q.type,
           text: q.text?.substring(0, 50),
@@ -395,32 +423,12 @@ export default function PublicFormView() {
             imageUrl: opt.imageUrl?.substring(0, 50) + (opt.imageUrl?.length > 50 ? '...' : '')
           })) || []
         })));
-        
-        // Process questions with option shuffling if needed
-        const processedQuestions = allQuestions.map((question: Question) => {
-          // For preview mode, don't shuffle anything
-          if (isPreview) {
-            return question;
-          }
-          
-          // Shuffle options if enabled for this question
-          if (question.shuffleOptionsOrder && 
-              (question.type === 'MULTIPLE_CHOICE' || question.type === 'CHECKBOXES' || question.type === 'DROPDOWN')) {
-            return {
-              ...question,
-              options: shuffleArray(question.options)
-            };
-          }
-          
-          return question;
-        });
-        
-        // Handle question shuffling if enabled (but only for non-preview mode)
-        if (data.form.shuffleQuestions && !isPreview) {
-          setShuffledQuestions(shuffleArray(processedQuestions));
-        } else {
-          setShuffledQuestions(processedQuestions);
-        }
+
+        // Update formData to include processed (and possibly shuffled) sections
+        setFormData({ ...data.form, sections: processedSections });
+
+        // Also set flattened questions used for quiz/progress logic
+        setShuffledQuestions(allQuestionsFlat);
       } else {
         // Form is either not published or doesn't exist
         setNotFound(true);
@@ -433,7 +441,6 @@ export default function PublicFormView() {
     }
   };
 
-  // Handle input changes
   const handleInputChange = (questionId: string, value: string | string[]) => {
     setResponses(prev => ({
       ...prev,
@@ -493,7 +500,6 @@ export default function PublicFormView() {
     return Object.keys(newErrors).length === 0;
   };
 
-  // Handle form submission
   const handleSubmit = async () => {
     // Check if multiple responses are allowed
     if (!formData?.allowMultipleResponses && hasSubmittedBefore) {
@@ -571,7 +577,6 @@ export default function PublicFormView() {
     }
   };
 
-  // Handle clear form
   const handleClearForm = () => {
     // Check if there are any responses to clear
     const hasResponses = Object.keys(responses).length > 0 && 
@@ -1321,7 +1326,7 @@ export default function PublicFormView() {
                   </Button>
                   
                   {/* Progress Bar in Center */}
-                  {formData?.showProgress && !shouldUseSectionView() && (
+                  {formData?.showProgress && (
                     <div className="flex items-center space-x-3">
                       <div className="w-24 bg-gray-200 rounded-full h-2">
                         <div 

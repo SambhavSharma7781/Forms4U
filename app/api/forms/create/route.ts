@@ -4,7 +4,6 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get authenticated user
     const { userId } = await auth();
     
     if (!userId) {
@@ -48,7 +47,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Create form with questions
     const form = await prisma.form.create({
       data: {
         title,
@@ -72,7 +70,6 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    // Create sections and questions for the form
     if (sections && sections.length > 0) {
       // Create sections with their questions
       for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {

@@ -24,7 +24,6 @@ export default function RichTextEditor({
   const [savedRange, setSavedRange] = useState<Range | null>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // Update the contentEditable div when value changes externally
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       editorRef.current.innerHTML = value;

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/services/prisma';
 import { auth } from '@clerk/nextjs/server';
 
-// Add a new section to a form
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();

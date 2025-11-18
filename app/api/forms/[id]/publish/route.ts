@@ -31,7 +31,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
-    // Update published status
     const updatedForm = await prisma.form.update({
       where: { id: formId },
       data: { published },

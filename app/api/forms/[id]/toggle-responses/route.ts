@@ -35,7 +35,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'Form must be published first' }, { status: 400 });
     }
 
-    // Update accepting responses status
     const updatedForm = await prisma.form.update({
       where: { id: formId },
       data: { acceptingResponses },

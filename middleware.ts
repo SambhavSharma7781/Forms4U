@@ -1,6 +1,22 @@
-import { clerkMiddleware } from '@clerk/nextjs/server';
+import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-export default clerkMiddleware();
+const isProtectedRoute = createRouteMatcher([
+  '/forms/create',
+  '/forms/create/(.*)',
+  '/forms/:id',
+  '/forms/:id/(.*)',
+]);
+
+export default clerkMiddleware(async (auth, req) => {
+  // Check if it's a protected route but not a view route
+  const url = req.nextUrl.pathname;
+  const isViewRoute = url.includes('/view');
+  const isEditResponseRoute = url.includes('/edit-response');
+  
+  if (isProtectedRoute(req) && !isViewRoute && !isEditResponseRoute) {
+    await auth.protect();
+  }
+});
 
 export const config = {
   matcher: [

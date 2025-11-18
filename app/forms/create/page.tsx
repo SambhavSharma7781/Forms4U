@@ -3,8 +3,11 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import QuestionCard from "@/components/QuestionCard";
 import { navbarEvents } from "@/components/Navbar";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type QuestionType = "SHORT_ANSWER" | "PARAGRAPH" | "MULTIPLE_CHOICE" | "CHECKBOXES" | "DROPDOWN";
 
@@ -28,6 +31,26 @@ interface Question {
 }
 
 export default function CreateFormPage() {
+  const { isSignedIn, isLoaded } = useAuth();
+  const router = useRouter();
+  
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
+  
+  // Show loading spinner while checking authentication
+  if (!isLoaded) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+  
+  // Show loading spinner while redirecting
+  if (!isSignedIn) {
+    return <LoadingSpinner message="Redirecting to sign in..." />;
+  }
+  
   const [formTitle, setFormTitle] = useState("Untitled form");
   const [formDescription, setFormDescription] = useState("");
   const [saving, setSaving] = useState(false);

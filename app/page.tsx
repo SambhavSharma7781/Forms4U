@@ -171,28 +171,37 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         
         {/* Start a new form section */}
-        <div className="mb-12" id="new-form-section">
-          <h2 className="text-lg font-medium text-gray-700 mb-4">Start a new form</h2>
-          <div className="w-48">
-            <button 
-              onClick={() => {
-                router.push('/forms/create');
-              }}
-              className="block w-full"
-            >
-              <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer">
-                <div className="text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
+        {isSignedIn ? (
+          <div className="mb-12" id="new-form-section">
+            <h2 className="text-lg font-medium text-gray-700 mb-4">Start a new form</h2>
+            <div className="w-48">
+              <button 
+                onClick={() => {
+                  router.push('/forms/create');
+                }}
+                className="block w-full"
+              >
+                <div className="bg-white border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-blue-400 hover:bg-blue-50 transition-colors cursor-pointer">
+                  <div className="text-center">
+                    <div className="w-12 h-12 mx-auto mb-3 bg-blue-100 rounded-full flex items-center justify-center">
+                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">New form</p>
                   </div>
-                  <p className="text-sm font-medium text-gray-900">New form</p>
                 </div>
-              </div>
-            </button>
+              </button>
+            </div>
           </div>
-        </div>
+        ) : isLoaded && (
+          <div className="mb-12" id="new-form-section">
+            <h2 className="text-lg font-medium text-gray-700 mb-4">Start a new form</h2>
+            <div className="text-center py-12">
+              <p className="text-gray-500">Please sign in to create forms.</p>
+            </div>
+          </div>
+        )}
 
         {/* Owned by you section */}
         <div>

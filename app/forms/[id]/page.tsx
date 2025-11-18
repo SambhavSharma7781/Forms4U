@@ -75,6 +75,23 @@ export default function Form() {
   const { isSignedIn, isLoaded } = useAuth();
   const formId = params.id as string;
 
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
+  
+  // Show loading spinner while checking authentication
+  if (!isLoaded) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+  
+  // Show loading spinner while redirecting
+  if (!isSignedIn) {
+    return <LoadingSpinner message="Redirecting to sign in..." />;
+  }
+
   const [formData, setFormData] = useState<FormData>({
     id: '',
     title: 'Untitled form',

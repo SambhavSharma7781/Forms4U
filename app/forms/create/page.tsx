@@ -34,23 +34,6 @@ export default function CreateFormPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
   
-  // Redirect to sign-in if not authenticated
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push('/sign-in');
-    }
-  }, [isLoaded, isSignedIn, router]);
-  
-  // Show loading spinner while checking authentication
-  if (!isLoaded) {
-    return <LoadingSpinner message="Loading..." />;
-  }
-  
-  // Show loading spinner while redirecting
-  if (!isSignedIn) {
-    return <LoadingSpinner message="Redirecting to sign in..." />;
-  }
-  
   const [formTitle, setFormTitle] = useState("Untitled form");
   const [formDescription, setFormDescription] = useState("");
   const [saving, setSaving] = useState(false);
@@ -84,6 +67,13 @@ export default function CreateFormPage() {
     editTimeLimit: '24h'
   });
 
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
   // Auto-disable response editing when quiz mode is enabled
   useEffect(() => {
     if (formSettings.isQuiz && formSettings.allowResponseEditing) {
@@ -112,6 +102,15 @@ export default function CreateFormPage() {
       navbarEvents.unsubscribe('previewForm', handleNavbarPreview);
     };
   }, []);
+
+  // Show loading or redirect content (after all hooks)
+  if (!isLoaded) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+  
+  if (!isSignedIn) {
+    return <LoadingSpinner message="Redirecting to sign in..." />;
+  }
 
   const handleAddQuestion = () => {
     const newQuestion: Question = {

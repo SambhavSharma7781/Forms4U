@@ -75,23 +75,7 @@ export default function Form() {
   const { isSignedIn, isLoaded } = useAuth();
   const formId = params.id as string;
 
-  // Redirect to sign-in if not authenticated
-  useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push('/sign-in');
-    }
-  }, [isLoaded, isSignedIn, router]);
-  
-  // Show loading spinner while checking authentication
-  if (!isLoaded) {
-    return <LoadingSpinner message="Loading..." />;
-  }
-  
-  // Show loading spinner while redirecting
-  if (!isSignedIn) {
-    return <LoadingSpinner message="Redirecting to sign in..." />;
-  }
-
+  // All state declarations must come before any conditional logic
   const [formData, setFormData] = useState<FormData>({
     id: '',
     title: 'Untitled form',
@@ -110,6 +94,10 @@ export default function Form() {
   const [expandedResponse, setExpandedResponse] = useState<string | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  
+  // Section deletion confirmation dialog
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [sectionToDelete, setSectionToDelete] = useState<{id: string, index: number, questionCount: number} | null>(null);
 
   // Track original form data to detect changes
   const [originalFormData, setOriginalFormData] = useState<FormData | null>(null);
@@ -204,16 +192,6 @@ export default function Form() {
     }));
   };
 
-  // Auto-disable response editing when quiz mode is enabled
-  useEffect(() => {
-    if (formSettings.isQuiz && formSettings.allowResponseEditing) {
-      setFormSettings(prev => ({
-        ...prev,
-        allowResponseEditing: false
-      }));
-    }
-  }, [formSettings.isQuiz]);
-
   // Utility function to validate settings before saving
   const validateSettings = (settings: typeof formSettings) => {
     // Ensure response editing is disabled in quiz mode
@@ -225,6 +203,24 @@ export default function Form() {
     }
     return settings;
   };
+
+  // ALL useEffect hooks must come before any conditional returns
+  // Authentication check
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      router.push('/sign-in');
+    }
+  }, [isLoaded, isSignedIn, router]);
+
+  // Auto-disable response editing when quiz mode is enabled
+  useEffect(() => {
+    if (formSettings.isQuiz && formSettings.allowResponseEditing) {
+      setFormSettings(prev => ({
+        ...prev,
+        allowResponseEditing: false
+      }));
+    }
+  }, [formSettings.isQuiz]);
 
   // Fetch existing form data if editing
   useEffect(() => {
@@ -261,8 +257,6 @@ export default function Form() {
       }
     };
   }, [activeTab, isExistingForm, formData.published]);
-
-
 
   // Listen for navbar publish button clicks
   useEffect(() => {
@@ -326,8 +320,6 @@ export default function Form() {
     }
   }, [formData.published, formData.acceptingResponses, formData.id, formData.title, isExistingForm, loading]);
 
-
-
   // Sync formData with formSettings changes for components that rely on formData
   useEffect(() => {
     setFormData(prev => ({
@@ -348,6 +340,17 @@ export default function Form() {
     };
   }, []);
 
+  // Show loading spinner while checking authentication
+  if (!isLoaded) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+  
+  // Show loading spinner while redirecting
+  if (!isSignedIn) {
+    return <LoadingSpinner message="Redirecting to sign in..." />;
+  }
+
+  // Fetch form data function
   const fetchFormData = async () => {
     try {
       const response = await fetch(`/api/forms/${formId}`);
@@ -434,8 +437,9 @@ export default function Form() {
 
   // Check if form has unsaved changes
   const hasUnsavedChanges = () => {
+    // For new forms (no original data), always allow saving if there's content
     if (!originalFormData) {
-      return false;
+      return true; // Allow saving new forms
     }
     
     // Compare title and description
@@ -450,13 +454,13 @@ export default function Form() {
     }
     
     // Compare sections (title, description, count)
-    if (formData.sections.length !== originalFormData.sections.length) {
+    if ((formData.sections || []).length !== (originalFormData.sections || []).length) {
       return true;
     }
     
-    for (let i = 0; i < formData.sections.length; i++) {
-      const currentSection = formData.sections[i];
-      const originalSection = originalFormData.sections[i];
+    for (let i = 0; i < (formData.sections || []).length; i++) {
+      const currentSection = (formData.sections || [])[i];
+      const originalSection = (originalFormData.sections || [])[i];
       
       if (!originalSection) {
         return true; // New section
@@ -567,37 +571,149 @@ export default function Form() {
   const addSectionAfter = (questionId: string) => {
     if (!formData.sections) return;
 
-    // Find which section contains this question
+    // Find which section contains this question and the question's position
     let targetSectionIndex = -1;
-    formData.sections.forEach((section, index) => {
-      if (section.questions.some(q => q.id === questionId)) {
-        targetSectionIndex = index;
+    let questionIndex = -1;
+    formData.sections.forEach((section, secIndex) => {
+      const qIndex = section.questions.findIndex(q => q.id === questionId);
+      if (qIndex !== -1) {
+        targetSectionIndex = secIndex;
+        questionIndex = qIndex;
       }
     });
 
-    if (targetSectionIndex === -1) return;
+    if (targetSectionIndex === -1 || questionIndex === -1) return;
 
-    // Create new section
+    const targetSection = formData.sections[targetSectionIndex];
+    
+    // Split the questions: keep questions up to and including the clicked question,
+    // move remaining questions to the new section
+    const questionsToKeep = targetSection.questions.slice(0, questionIndex + 1);
+    const questionsToMove = targetSection.questions.slice(questionIndex + 1);
+
+    // Create new section with the moved questions plus a new empty question
     const newSection: Section = {
       id: `temp_section_${Date.now()}`,
       title: `Section ${formData.sections.length + 1}`,
       description: null,
       order: targetSectionIndex + 1,
-      questions: [{
-        id: `temp_${Date.now()}`,
-        text: '',
-        type: 'SHORT_ANSWER',
-        required: formSettings.defaultRequired,
-        options: [],
-        imageUrl: ''
-      }]
+      questions: [
+        ...questionsToMove,
+        // Add new empty question if no questions were moved
+        ...(questionsToMove.length === 0 ? [{
+          id: `temp_${Date.now()}`,
+          text: '',
+          type: 'SHORT_ANSWER' as const,
+          required: formSettings.defaultRequired,
+          options: [],
+          imageUrl: ''
+        }] : [])
+      ]
+    };
+
+    // Update the original section to only keep questions up to the clicked question
+    const updatedSections = [...formData.sections];
+    updatedSections[targetSectionIndex] = {
+      ...targetSection,
+      questions: questionsToKeep
     };
 
     // Insert the new section after the target section
-    const updatedSections = [...formData.sections];
     updatedSections.splice(targetSectionIndex + 1, 0, newSection);
 
     // Update order values for sections after the insertion point
+    updatedSections.forEach((section, index) => {
+      section.order = index;
+    });
+
+    setFormData({ ...formData, sections: updatedSections });
+  };
+
+  const deleteSection = (sectionId: string) => {
+    if (!formData.sections || formData.sections.length <= 1) {
+      // Don't allow deleting the last section
+      return;
+    }
+
+    // Find the section to delete and its index
+    const sectionIndex = formData.sections.findIndex(section => section.id === sectionId);
+    const sectionToDelete = formData.sections[sectionIndex];
+    if (!sectionToDelete) return;
+
+    // Get all questions from the section that will be deleted
+    const questionsToMove = sectionToDelete.questions || [];
+    
+    // If section has questions, show confirmation dialog
+    if (questionsToMove.length > 0) {
+      setSectionToDelete({
+        id: sectionId,
+        index: sectionIndex,
+        questionCount: questionsToMove.length
+      });
+      setShowDeleteDialog(true);
+    } else {
+      // If no questions in section, delete directly
+      deleteSectionDirectly(sectionId);
+    }
+  };
+
+  const handleMergeSection = () => {
+    if (sectionToDelete) {
+      mergeWithPreviousSection(sectionToDelete.id);
+      setShowDeleteDialog(false);
+      setSectionToDelete(null);
+    }
+  };
+
+  const handleDeleteEntireSection = () => {
+    if (sectionToDelete) {
+      deleteSectionDirectly(sectionToDelete.id);
+      setShowDeleteDialog(false);
+      setSectionToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteDialog(false);
+    setSectionToDelete(null);
+  };
+
+  const mergeWithPreviousSection = (sectionId: string) => {
+    if (!formData.sections) return;
+
+    const sectionIndex = formData.sections.findIndex(section => section.id === sectionId);
+    const sectionToDelete = formData.sections[sectionIndex];
+    if (!sectionToDelete) return;
+
+    const questionsToMove = sectionToDelete.questions || [];
+    
+    // Remove the section
+    let updatedSections = formData.sections.filter(section => section.id !== sectionId);
+    
+    // Add questions to the previous section (or first section if deleting the first one)
+    if (questionsToMove.length > 0 && updatedSections.length > 0) {
+      const targetSectionIndex = sectionIndex > 0 ? sectionIndex - 1 : 0;
+      updatedSections[targetSectionIndex] = {
+        ...updatedSections[targetSectionIndex],
+        questions: [...(updatedSections[targetSectionIndex].questions || []), ...questionsToMove]
+      };
+    }
+
+    // Update order values
+    updatedSections.forEach((section, index) => {
+      section.order = index;
+    });
+
+    setFormData({ ...formData, sections: updatedSections });
+  };
+
+  const deleteSectionDirectly = (sectionId: string) => {
+    if (!formData.sections) return;
+    
+    // Remove the section (for empty sections or when user chooses to delete entirely)
+    const updatedSections = formData.sections.filter(section => section.id !== sectionId);
+    
+    // Update order values
     updatedSections.forEach((section, index) => {
       section.order = index;
     });
@@ -660,20 +776,50 @@ export default function Form() {
       
       // Create payload with correct published status and proper data structure
       const allQuestions = getAllQuestions(formData.sections || []);
+      
+      // Process sections to filter out temporary IDs and structure data properly
+      const processedSections = (formData.sections || []).map(section => ({
+        id: section.id && !section.id.startsWith('temp_') ? section.id : undefined, // Remove temp IDs
+        title: section.title || 'Untitled Section',
+        description: section.description || null,
+        order: section.order,
+        questions: (section.questions || []).map((q: any) => ({
+          id: q.id && !q.id.startsWith('temp_') ? q.id : undefined, // Remove temp IDs
+          text: q.text,
+          description: q.description,
+          type: q.type,
+          required: q.required,
+          options: (q.options || []).map((opt: any) => ({
+            id: opt.id && !opt.id.startsWith('temp_') ? opt.id : undefined, // Remove temp IDs
+            text: opt.text,
+            imageUrl: opt.imageUrl || null
+          })),
+          shuffleOptionsOrder: q.shuffleOptionsOrder || false,
+          imageUrl: q.imageUrl || null,
+          // Quiz fields
+          points: q.points || 1,
+          correctAnswers: q.correctAnswers || []
+        }))
+      }));
+      
       const payload = {
         title: formData.title,
         description: formData.description,
         published: publishedStatus,
-        sections: formData.sections || [],
+        sections: processedSections,
         // Legacy support - also include flattened questions
         questions: allQuestions.map((q: any) => ({
-          id: q.id, // Include question ID for existing questions
+          id: q.id && !q.id.startsWith('temp_') ? q.id : undefined, // Remove temp IDs
           question: q.text, // API expects 'question' field
           text: q.text, // Also send as 'text' for compatibility
           description: q.description, // Add description to the payload
           type: q.type,
           required: q.required,
-          options: q.options,
+          options: (q.options || []).map((opt: any) => ({
+            id: opt.id && !opt.id.startsWith('temp_') ? opt.id : undefined, // Remove temp IDs
+            text: opt.text,
+            imageUrl: opt.imageUrl || null
+          })),
           shuffleOptionsOrder: q.shuffleOptionsOrder || false,
           imageUrl: q.imageUrl, // Add image URL to the payload
           // Quiz fields
@@ -728,8 +874,17 @@ export default function Form() {
           message = publishedStatus ? 'Form published successfully!' : 'Form saved as draft!';
         }
         
+        // For new forms, redirect to edit page for drafts, home for published
         if (!isExistingForm) {
-          router.push('/');
+          if (publishedStatus) {
+            router.push('/'); // Redirect to home for published forms
+          } else {
+            // For draft saves, redirect to the edit page of the newly created form
+            const newFormId = data.form?.id || data.formId;
+            if (newFormId) {
+              window.location.href = `/forms/${newFormId}`;
+            }
+          }
         }
       } else {
       }
@@ -878,28 +1033,28 @@ export default function Form() {
       <div className="max-w-4xl mx-auto px-6 py-8">
         
         {/* Google Forms Style Tab Navigation */}
-        <div className="bg-white rounded-lg border border-gray-200 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 mb-6 shadow-sm">
           <div className="flex justify-between items-center border-b border-gray-200">
             <div className="flex">
               <button
                 onClick={() => handleTabChange('questions')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all duration-200 relative ${
                   activeTab === 'questions'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 Questions
               </button>
               <button
                 onClick={() => handleTabChange('responses')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all duration-200 relative ${
                   activeTab === 'responses'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-blue-600 text-blue-600 bg-blue-50'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                 }`}
               >
-                Responses {responseCount > 0 && <span className="ml-1 bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs">{responseCount}</span>}
+                Responses {responseCount > 0 && <span className="ml-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">{responseCount}</span>}
               </button>
               <button
                 onClick={() => handleTabChange('settings')}
@@ -982,11 +1137,22 @@ export default function Form() {
                     {/* Section Header with Lines */}
                     {formData.sections.length > 1 && (
                       <div className="mb-6">
-                        {/* Section Number */}
-                        <div className="mb-3">
+                        {/* Section Number and Delete Button */}
+                        <div className="mb-3 flex items-center justify-between">
                           <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
                             Section {sectionIndex + 1}
                           </span>
+                          {formData.sections.length > 1 && (
+                            <button
+                              onClick={() => deleteSection(section.id)}
+                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
+                              title="Delete Section"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                         
                         {/* Top Line */}
@@ -1758,6 +1924,42 @@ export default function Form() {
         )}
 
       </div>
+
+      {/* Delete Section Confirmation Dialog */}
+      {showDeleteDialog && sectionToDelete && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-200">
+          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-lg">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Delete section?</h3>
+            <p className="text-gray-600 text-sm mb-6">
+              Section {sectionToDelete.index + 1} has {sectionToDelete.questionCount} {sectionToDelete.questionCount === 1 ? 'question' : 'questions'}. 
+              What would you like to do with {sectionToDelete.questionCount === 1 ? 'it' : 'them'}?
+            </p>
+            
+            <div className="space-y-2">
+              <button
+                onClick={handleMergeSection}
+                className="w-full px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md text-sm transition-colors"
+              >
+                Move to previous section
+              </button>
+              
+              <button
+                onClick={handleDeleteEntireSection}
+                className="w-full px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md text-sm transition-colors"
+              >
+                Delete questions permanently
+              </button>
+            </div>
+            
+            <button
+              onClick={handleCancelDelete}
+              className="w-full mt-3 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-md text-sm transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

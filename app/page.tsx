@@ -323,10 +323,10 @@ export default function Dashboard() {
 
                       {/* Right Side - Status + Menu (All in one line) */}
                       <div className="flex items-center space-x-2 flex-shrink-0">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold shadow-sm ${
                           form.published 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-600'
+                            ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                            : 'bg-amber-100 text-amber-700 border border-amber-200'
                         }`}>
                           {form.published ? 'Live' : 'Draft'}
                         </span>
@@ -337,7 +337,7 @@ export default function Dashboard() {
                               e.stopPropagation();
                               handleMenuToggle(form.id);
                             }}
-                            className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
+                            className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:shadow-sm"
                           >
                             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M12,16A2,2 0 0,1 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18A2,2 0 0,1 12,16M12,10A2,2 0 0,1 14,12A2,2 0 0,1 12,14A2,2 0 0,1 10,12A2,2 0 0,1 12,10M12,4A2,2 0 0,1 14,6A2,2 0 0,1 12,8A2,2 0 0,1 10,6A2,2 0 0,1 12,4Z" />
@@ -400,14 +400,14 @@ export default function Dashboard() {
             </div>
           ) : (
             // Empty state
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="text-center py-16">
+              <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center shadow-lg">
+                <svg className="w-10 h-10 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No forms yet</h3>
-              <p className="text-gray-600 mb-4">Create your first form to get started!</p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">No forms yet</h3>
+              <p className="text-gray-600 mb-6 max-w-sm mx-auto">Create your first form to start collecting responses and engaging with your audience!</p>
               <Link href="/forms/create">
                 <span className="text-blue-600 hover:text-blue-700 font-medium">Create a form →</span>
               </Link>

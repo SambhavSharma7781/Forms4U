@@ -1088,15 +1088,12 @@ export default function PublicFormView() {
               </div>
             </div>
 
-            {/* 🆕 Section Progress Indicator (Shows for all section-based forms) */}
-            {shouldUseSectionView() && (
+            {/* 🆕 Section Progress Indicator (Only show for multi-section forms) */}
+            {shouldUseSectionView() && formData.sections.length > 1 && (
               <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
                 <div className="flex items-center justify-center">
                   <span className="text-sm text-gray-600 font-medium">
-                    {formData.sections.length > 1 
-                      ? `Section ${currentSectionIndex + 1} of ${formData.sections.length}`
-                      : getCurrentSection()?.title || 'Section 1'
-                    }
+                    Section {currentSectionIndex + 1} of {formData.sections.length}
                   </span>
                 </div>
               </div>
@@ -1143,8 +1140,8 @@ export default function PublicFormView() {
               <>
                 {getCurrentSection() && (
                   <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-                    {/* Section Header - Show for all sections */}
-                    {(formData.sections.length > 1 || getCurrentSection()!.title !== 'Section 1' || getCurrentSection()!.description) && (
+                    {/* Section Header - Only show when multiple sections exist OR custom title/description */}
+                    {(formData.sections.length > 1 && (getCurrentSection()!.title !== 'Section 1' || getCurrentSection()!.description)) && (
                       <div className="mb-6 border-b border-gray-200 pb-4">
                         <h2 className="text-xl font-semibold text-gray-800 mb-2">
                           {getCurrentSection()!.title}

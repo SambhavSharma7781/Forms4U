@@ -75,6 +75,7 @@ export default function QuestionCard({
   const [shuffleOptionsOrder, setShuffleOptionsOrder] = useState(initialShuffleOptionsOrder);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState<'top' | 'bottom'>('bottom');
+  const [menuSide, setMenuSide] = useState<'left' | 'right'>('left');
   const [imageUrl, setImageUrl] = useState(initialImageUrl);
   const [points, setPoints] = useState(initialPoints);
   const [correctAnswers, setCorrectAnswers] = useState<string[]>(() => {
@@ -142,17 +143,29 @@ export default function QuestionCard({
   };
 
   const handleMenuToggle = (event: React.MouseEvent) => {
-    const buttonRect = (event.target as HTMLElement).getBoundingClientRect();
+    const target = event.currentTarget as HTMLElement;
+    const buttonRect = target.getBoundingClientRect();
     const windowHeight = window.innerHeight;
-    const menuHeight = 300;
-    
+    const windowWidth = window.innerWidth;
+    const menuHeight = 350; // approximate
+    const menuWidth = 300; // approximate
+
+    // Vertical placement
     if (buttonRect.bottom + menuHeight > windowHeight) {
       setMenuPosition('top');
     } else {
       setMenuPosition('bottom');
     }
-    
-    setShowOptionsMenu(!showOptionsMenu);
+
+    // Horizontal placement - prefer left unless not enough space
+    const spaceRight = windowWidth - buttonRect.right;
+    if (spaceRight < menuWidth) {
+      setMenuSide('right');
+    } else {
+      setMenuSide('left');
+    }
+
+    setShowOptionsMenu((prev) => !prev);
   };
 
   const questionTypes = [
@@ -387,14 +400,14 @@ export default function QuestionCard({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 mb-6 group hover:shadow-sm transition-shadow">
+    <div className="bg-white rounded-lg border border-gray-200 mb-6 group hover:shadow-sm transition-shadow relative" style={{ overflow: 'visible' }}>
       {/* Blue left border - Google Forms style */}
-      <div className="border-l-4 border-blue-600">
+      <div className="border-l-4 border-blue-600 h-full">
         <div className="p-6">
           
           {/* Question header */}
           <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
+            <div className="flex-1 pr-4">
               <RichTextEditor
                 value={question || ''}
                 onChange={(value) => setQuestion(value)}
@@ -405,29 +418,33 @@ export default function QuestionCard({
               
               {/* Description input - Shows when user enables it from 3-dot menu */}
               {showDescription && (
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Add description"
-                  rows={2}
-                  className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 mt-2 transition-colors resize-none"
-                />
+                <div className="mt-3">
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Add description"
+                    rows={2}
+                    className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-2 -mx-2 transition-colors resize-none"
+                  />
+                </div>
               )}
               
               {/* Image Upload Component */}
-              <ImageUpload
-                imageUrl={imageUrl}
-                onImageUpload={handleImageUpload}
-                onImageRemove={handleImageRemove}
-              />
+              <div className="mt-3">
+                <ImageUpload
+                  imageUrl={imageUrl}
+                  onImageUpload={handleImageUpload}
+                  onImageRemove={handleImageRemove}
+                />
+              </div>
             </div>
             
             {/* Question type selector - Professional styling */}
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <select
                 value={questionType}
                 onChange={(e) => handleTypeChange(e.target.value as QuestionType)}
-                className="appearance-none bg-white border border-gray-300 rounded-md px-4 py-2 pr-8 text-sm text-gray-700 hover:border-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 outline-none cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md"
+                className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-2 pr-8 text-sm text-gray-700 hover:border-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-opacity-20 outline-none cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md min-w-[140px]"
               >
                 {questionTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -450,22 +467,23 @@ export default function QuestionCard({
           {/* Bottom toolbar */}
           <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-100">
             {/* Required toggle */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">Required</span>
+            <div className="flex items-center space-x-3">
+              <span className="text-sm text-gray-600 font-medium">Required</span>
               <button
                 onClick={() => setRequired(!required)}
                 className={`transition-colors ${required ? 'text-blue-600' : 'text-gray-400'}`}
+                title={required ? 'Make optional' : 'Make required'}
               >
                 {required ? <ToggleRight className="w-8 h-5" /> : <ToggleLeft className="w-8 h-5" />}
               </button>
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
               {/* Action buttons */}
               <button
                 onClick={onDuplicate}
                 className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                title="Duplicate"
+                title="Duplicate question"
               >
                 <Copy className="w-4 h-4" />
               </button> 
@@ -473,16 +491,16 @@ export default function QuestionCard({
               <button
                 onClick={onDelete}
                 className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                title="Delete"
+                title="Delete question"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
               
               {/* 3-dots menu - now available for all question types */}
-              <div className="relative">
+              <div className="relative z-10">
                 <button 
                   onClick={handleMenuToggle}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors relative z-30"
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all duration-200 relative z-20 transform hover:scale-105"
                   title="Question Options"
                 >
                   <MoreVertical className="w-4 h-4" />
@@ -493,24 +511,29 @@ export default function QuestionCard({
                   <>
                     {/* Backdrop */}
                     <div 
-                      className="fixed inset-0 z-10" 
+                      className="fixed inset-0 z-50" 
                       onClick={() => setShowOptionsMenu(false)}
                     />
                     
-                    {/* Menu Content - Smart positioning to avoid overflow */}
-                    <div className={`absolute left-0 w-72 bg-white rounded-lg shadow-xl border border-gray-100 z-40 max-h-96 overflow-y-auto ${
+                    {/* Menu Content - Professional absolute positioning */}
+                    <div className={`absolute bg-white rounded-xl shadow-2xl border border-gray-200 max-h-80 overflow-y-auto w-72 transform transition-all duration-200 ease-out ${
                       menuPosition === 'top' 
-                        ? 'bottom-full mb-2 origin-bottom-left' 
-                        : 'top-full mt-2 origin-top-left'
+                        ? 'bottom-full mb-2' 
+                        : 'top-full mt-2'
+                    } ${
+                      menuSide === 'left' 
+                        ? 'left-0 origin-top-left' 
+                        : 'right-0 origin-top-right'
                     }`}
                          style={{ 
-                           boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                           minWidth: '280px'
+                           boxShadow: '0 20px 40px -8px rgba(0, 0, 0, 0.15), 0 8px 16px -8px rgba(0, 0, 0, 0.08)',
+                           minWidth: '280px',
+                           zIndex: 1000
                          }}>
                       {/* Show shuffle option only for option-based questions */}
                       {(questionType === "MULTIPLE_CHOICE" || questionType === "CHECKBOXES" || questionType === "DROPDOWN") && (
-                        <div className="py-2">
-                          <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                        <div className="p-1">
+                          <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                             Question Options
                           </div>
                           
@@ -519,7 +542,7 @@ export default function QuestionCard({
                               setShuffleOptionsOrder(!shuffleOptionsOrder);
                               setShowOptionsMenu(false);
                             }}
-                            className="w-full flex items-center justify-between px-3 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-all duration-150 group"
+                            className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 group rounded-lg mx-1 my-1"
                           >
                             <div className="flex items-center space-x-3">
                               <div className={`p-1.5 rounded-md ${shuffleOptionsOrder ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600'} transition-colors`}>
@@ -542,8 +565,8 @@ export default function QuestionCard({
                       )}
                       
                       {/* Description Option - Available for all question types */}
-                      <div className="py-2 border-t border-gray-100">
-                        <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      <div className="p-1 border-t border-gray-100">
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                           Additional Fields
                         </div>
                         
@@ -552,7 +575,7 @@ export default function QuestionCard({
                             setShowDescription(!showDescription);
                             setShowOptionsMenu(false);
                           }}
-                          className="w-full flex items-center justify-between px-3 py-3 text-sm text-gray-700 hover:bg-blue-50 transition-all duration-150 group"
+                          className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-all duration-200 group rounded-lg mx-1 my-1"
                         >
                           <div className="flex items-center space-x-3">
                             <div className={`p-1.5 rounded-md ${showDescription ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600'} transition-colors`}>
@@ -576,8 +599,8 @@ export default function QuestionCard({
                       </div>
                       
                       {/* 🆕 Section Management */}
-                      <div className="py-2 border-t border-gray-100">
-                        <div className="px-3 py-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
+                      <div className="p-1 border-t border-gray-100">
+                        <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100">
                           Section Management
                         </div>
                         
@@ -586,7 +609,7 @@ export default function QuestionCard({
                             onAddSectionAfter?.();
                             setShowOptionsMenu(false);
                           }}
-                          className="w-full flex items-center justify-between px-3 py-3 text-sm text-gray-700 hover:bg-green-50 transition-all duration-150 group"
+                          className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700 transition-all duration-200 group rounded-lg mx-1 my-1"
                         >
                           <div className="flex items-center space-x-3">
                             <div className="p-1.5 rounded-md bg-gray-100 text-gray-500 group-hover:bg-green-100 group-hover:text-green-600 transition-colors">
@@ -611,18 +634,18 @@ export default function QuestionCard({
 
           {/* Quiz Configuration */}
           {isQuiz && (
-            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-blue-800">Quiz Settings</h4>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-blue-600">Points:</span>
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-semibold text-blue-900">Quiz Settings</h4>
+                <div className="flex items-center space-x-3">
+                  <span className="text-xs font-medium text-blue-700">Points:</span>
                   <input
                     type="number"
                     min="1"
                     max="100"
                     value={points}
                     onChange={(e) => setPoints(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-16 px-2 py-1 text-sm border border-blue-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-16 px-2 py-1.5 text-sm border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                   />
                 </div>
               </div>

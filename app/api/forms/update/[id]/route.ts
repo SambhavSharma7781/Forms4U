@@ -198,17 +198,63 @@ export async function PUT(
         // We can still update section titles and descriptions safely
         console.log('Form has existing responses - preserving questions and answers, but updating section metadata');
         
-        // Update section titles and descriptions (safe to update without affecting responses)
+        // Handle sections - update existing ones and create new ones
         if (sections && sections.length > 0) {
-          for (const sectionData of sections) {
-            if (sectionData.id && sectionData.id !== 'temp_section_1763318223615') { // Skip temp IDs
+          for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
+            const sectionData = sections[sectionIndex];
+            
+            if (sectionData.id && !sectionData.id.startsWith('temp_')) {
+              // Update existing section
               await tx.section.update({
                 where: { id: sectionData.id },
                 data: {
                   title: sectionData.title || 'Untitled Section',
-                  description: sectionData.description || null
+                  description: sectionData.description || null,
+                  order: sectionIndex
                 }
               });
+            } else {
+              // Create new section (no ID or temporary ID)
+              const createdSection = await tx.section.create({
+                data: {
+                  title: sectionData.title || 'Untitled Section',
+                  description: sectionData.description || null,
+                  order: sectionIndex,
+                  formId: formId
+                }
+              });
+
+              // Create questions for the new section
+              if (sectionData.questions && sectionData.questions.length > 0) {
+                for (const question of sectionData.questions) {
+                  const createdQuestion = await tx.question.create({
+                    data: {
+                      text: question.text || '',
+                      description: question.description || null,
+                      type: question.type || 'SHORT_ANSWER',
+                      required: question.required || false,
+                      imageUrl: question.imageUrl || null,
+                      sectionId: createdSection.id,
+                      points: question.points || 1,
+                      correctAnswers: question.correctAnswers || [],
+                      shuffleOptionsOrder: question.shuffleOptionsOrder || false
+                    }
+                  });
+
+                  // Create options for the question if they exist
+                  if (question.options && question.options.length > 0) {
+                    await tx.option.createMany({
+                      data: question.options
+                        .filter((opt: any) => opt.text?.trim()) // Only save options with text
+                        .map((option: any) => ({
+                          text: option.text,
+                          imageUrl: option.imageUrl || null,
+                          questionId: createdQuestion.id
+                        }))
+                    });
+                  }
+                }
+              }
             }
           }
         }

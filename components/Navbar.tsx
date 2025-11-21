@@ -34,10 +34,11 @@ export default function Navbar() {
   const isCreatePage = pathname === "/forms/create";
   const isFormEditPage = pathname.startsWith("/forms/") && pathname !== "/forms/create" && !pathname.includes("/view");
   const isPublicFormView = pathname.includes('/forms/') && pathname.includes('/view');
+  const isAuthPage = pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
   const { isSignedIn } = useAuth();
   
-  // Don't render navbar on public form view pages
-  if (isPublicFormView) {
+  // Don't render navbar on public form view pages or auth pages
+  if (isPublicFormView || isAuthPage) {
     return null;
   }
   
@@ -88,7 +89,7 @@ export default function Navbar() {
           </Button>
           <Button 
             onClick={() => navbarEvents.emit('publishForm')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 text-sm rounded-md font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-1.5"
+            className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 text-sm rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-1.5 transform hover:scale-105"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -200,21 +201,19 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <nav className="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center h-16">
           
           {/* Left - Brand/Logo */}
           <div className="flex items-center flex-shrink-0">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <span className="text-xl font-semibold text-gray-900 hidden sm:block">
-                NextForms
-              </span>
+              <span className="text-xl font-bold text-gray-900 tracking-tight">NextForms</span>
             </Link>
           </div>
 

@@ -84,95 +84,6 @@ export default function CreateFormPage() {
     }
   }, [formSettings.isQuiz]);
 
-  // Listen for navbar button clicks
-  useEffect(() => {
-    const handleNavbarPublish = () => {
-      handleSaveForm(true); // Save and publish
-    };
-
-    const handleNavbarPreview = () => {
-      handlePreviewForm(); // Show preview
-    };
-
-    navbarEvents.subscribe('publishForm', handleNavbarPublish);
-    navbarEvents.subscribe('previewForm', handleNavbarPreview);
-    
-    return () => {
-      navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
-      navbarEvents.unsubscribe('previewForm', handleNavbarPreview);
-    };
-  }, []);
-
-  // Show loading or redirect content (after all hooks)
-  if (!isLoaded) {
-    return <LoadingSpinner message="Loading..." />;
-  }
-  
-  if (!isSignedIn) {
-    return <LoadingSpinner message="Redirecting to sign in..." />;
-  }
-
-  const handleAddQuestion = () => {
-    const newQuestion: Question = {
-      id: Date.now().toString(),
-      question: "",
-      type: "SHORT_ANSWER",
-      required: formSettings.defaultRequired
-    };
-    setQuestions([...questions, newQuestion]);
-  };
-
-  const handleDeleteQuestion = (id: string) => {
-    if (questions.length > 1) { // Keep at least one question
-      setQuestions(questions.filter(q => q.id !== id));
-    }
-  };
-
-  const handleDuplicateQuestion = (id: string) => {
-    const questionToDuplicate = questions.find(q => q.id === id);
-    if (questionToDuplicate) {
-      const newQuestion: Question = {
-        ...questionToDuplicate,
-        id: Date.now().toString(),
-        question: questionToDuplicate.question + " (copy)"
-      };
-      const index = questions.findIndex(q => q.id === id);
-      const newQuestions = [...questions];
-      newQuestions.splice(index + 1, 0, newQuestion);
-      setQuestions(newQuestions);
-    }
-  };
-
-  const handleUpdateQuestion = (updatedData: {
-    id: string;
-    question: string;
-    description?: string; // Add description field
-    type: QuestionType;
-    required: boolean;
-    options: OptionWithImage[];
-    shuffleOptionsOrder?: boolean;
-    imageUrl?: string; // Add image URL field
-    points?: number;
-    correctAnswers?: string[];
-  }) => {
-    setQuestions(questions.map(q => 
-      q.id === updatedData.id 
-        ? { 
-            ...q, 
-            question: updatedData.question,
-            description: updatedData.description, // Add description to the update
-            type: updatedData.type,
-            required: updatedData.required,
-            options: updatedData.options,
-            shuffleOptionsOrder: updatedData.shuffleOptionsOrder,
-            imageUrl: updatedData.imageUrl, // Add image URL to the update
-            points: updatedData.points,
-            correctAnswers: updatedData.correctAnswers
-          }
-        : q
-    ));
-  };
-
   const handlePreviewForm = () => {
     // Create a temporary form preview with current data
     const previewData = {
@@ -248,6 +159,110 @@ export default function CreateFormPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Listen for navbar button clicks
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    
+    // Add a small delay to ensure component is fully mounted
+    const timeoutId = setTimeout(() => {
+      const handleNavbarPublish = () => {
+        if (typeof handleSaveForm === 'function') {
+          handleSaveForm(true); // Save and publish
+        }
+      };
+
+      const handleNavbarPreview = () => {
+        if (typeof handlePreviewForm === 'function') {
+          handlePreviewForm(); // Show preview
+        }
+      };
+
+      navbarEvents.subscribe('publishForm', handleNavbarPublish);
+      navbarEvents.subscribe('previewForm', handleNavbarPreview);
+      
+      // Store cleanup function
+      cleanup = () => {
+        navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
+        navbarEvents.unsubscribe('previewForm', handleNavbarPreview);
+      };
+    }, 10);
+    
+    return () => {
+      clearTimeout(timeoutId);
+      cleanup?.();
+    };
+  }, []);
+
+  // Show loading or redirect content (after all hooks)
+  if (!isLoaded) {
+    return <LoadingSpinner message="Loading..." />;
+  }
+  
+  if (!isSignedIn) {
+    return <LoadingSpinner message="Redirecting to sign in..." />;
+  }
+
+  const handleAddQuestion = () => {
+    const newQuestion: Question = {
+      id: Date.now().toString(),
+      question: "",
+      type: "SHORT_ANSWER",
+      required: formSettings.defaultRequired
+    };
+    setQuestions([...questions, newQuestion]);
+  };
+
+  const handleDeleteQuestion = (id: string) => {
+    if (questions.length > 1) { // Keep at least one question
+      setQuestions(questions.filter(q => q.id !== id));
+    }
+  };
+
+  const handleDuplicateQuestion = (id: string) => {
+    const questionToDuplicate = questions.find(q => q.id === id);
+    if (questionToDuplicate) {
+      const newQuestion: Question = {
+        ...questionToDuplicate,
+        id: Date.now().toString(),
+        question: questionToDuplicate.question + " (copy)"
+      };
+      const index = questions.findIndex(q => q.id === id);
+      const newQuestions = [...questions];
+      newQuestions.splice(index + 1, 0, newQuestion);
+      setQuestions(newQuestions);
+    }
+  };
+
+  const handleUpdateQuestion = (updatedData: {
+    id: string;
+    question: string;
+    description?: string; // Add description field
+    type: QuestionType;
+    required: boolean;
+    options: OptionWithImage[];
+    shuffleOptionsOrder?: boolean;
+    imageUrl?: string; // Add image URL field
+    points?: number;
+    correctAnswers?: string[];
+  }) => {
+    setQuestions(questions.map(q => 
+      q.id === updatedData.id 
+        ? { 
+            ...q, 
+            question: updatedData.question,
+            description: updatedData.description, // Add description to the update
+            type: updatedData.type,
+            required: updatedData.required,
+            options: updatedData.options,
+            shuffleOptionsOrder: updatedData.shuffleOptionsOrder,
+            imageUrl: updatedData.imageUrl, // Add image URL to the update
+            points: updatedData.points,
+            correctAnswers: updatedData.correctAnswers
+          }
+        : q
+    ));
   };
 
   return (

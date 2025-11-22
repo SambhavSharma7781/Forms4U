@@ -31,28 +31,14 @@ export { navbarEvents };
 
 export default function Navbar() {
   const pathname = usePathname();
+  const { isSignedIn } = useAuth();
+  const [formStatus, setFormStatus] = useState({ published: false, acceptingResponses: true, formId: '', title: '' });
+  const [linkCopied, setLinkCopied] = useState(false);
+  
   const isCreatePage = pathname === "/forms/create";
   const isFormEditPage = pathname.startsWith("/forms/") && pathname !== "/forms/create" && !pathname.includes("/view");
   const isPublicFormView = pathname.includes('/forms/') && pathname.includes('/view');
   const isAuthPage = pathname.startsWith('/sign-in') || pathname.startsWith('/sign-up');
-  const { isSignedIn } = useAuth();
-  
-  // Don't render navbar on public form view pages or auth pages
-  if (isPublicFormView || isAuthPage) {
-    return null;
-  }
-  
-  const [formStatus, setFormStatus] = useState({ published: false, acceptingResponses: true, formId: '', title: '' });
-  const [linkCopied, setLinkCopied] = useState(false);
-
-  // Extract form ID from URL for edit pages
-  const getFormIdFromUrl = () => {
-    if (isFormEditPage) {
-      const parts = pathname.split('/');
-      return parts[2]; // /forms/[id] -> parts[2] is the id
-    }
-    return '';
-  };
 
   // Listen for form status updates
   useEffect(() => {
@@ -71,6 +57,20 @@ export default function Navbar() {
       setFormStatus({ published: false, acceptingResponses: true, formId: '', title: '' });
     }
   }, [isFormEditPage, isCreatePage]);
+  
+  // Don't render navbar on public form view pages or auth pages
+  if (isPublicFormView || isAuthPage) {
+    return null;
+  }
+
+  // Extract form ID from URL for edit pages
+  const getFormIdFromUrl = () => {
+    if (isFormEditPage) {
+      const parts = pathname.split('/');
+      return parts[2]; // /forms/[id] -> parts[2] is the id
+    }
+    return '';
+  };
 
   const getPublishButton = () => {
     if (isCreatePage) {

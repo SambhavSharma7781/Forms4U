@@ -400,24 +400,25 @@ export default function QuestionCard({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 mb-6 group hover:shadow-sm transition-shadow relative" style={{ overflow: 'visible' }}>
-      {/* Blue left border - Google Forms style */}
-      <div className="border-l-4 border-blue-600 h-full">
-        <div className="p-6">
-          
-          {/* Question header */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1 pr-4">
-              <RichTextEditor
-                value={question || ''}
-                onChange={(value) => setQuestion(value)}
-                placeholder="Untitled question"
-                className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
-                style={{ minHeight: '32px' }}
-              />
-              
-              {/* Description input - Shows when user enables it from 3-dot menu */}
-              {showDescription && (
+    <div className="bg-white rounded-lg border border-gray-200 mb-6 group hover:shadow-sm transition-shadow relative overflow-hidden">
+      {/* Blue left border - Google Forms style - contained within the card */}
+      <div className="absolute left-0 top-0 w-1 h-full bg-blue-600"></div>
+      
+      <div className="p-6 pl-8">
+        
+        {/* Question header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 pr-4">
+            <RichTextEditor
+              value={question || ''}
+              onChange={(value) => setQuestion(value)}
+              placeholder="Untitled question"
+              className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
+              style={{ minHeight: '32px' }}
+            />
+            
+            {/* Description input - Shows when user enables it from 3-dot menu */}
+            {showDescription && (
                 <div className="mt-3">
                   <textarea
                     value={description}
@@ -746,7 +747,6 @@ export default function QuestionCard({
           )}
 
         </div>
-      </div>
     </div>
   );
 }

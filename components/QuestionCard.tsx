@@ -400,11 +400,18 @@ export default function QuestionCard({
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 mb-6 group hover:shadow-sm transition-shadow relative overflow-hidden">
-      {/* Blue left border - Google Forms style - contained within the card */}
-      <div className="absolute left-0 top-0 w-1 h-full bg-blue-600"></div>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 group hover:shadow-md transition-all duration-200 relative" style={{ overflow: 'visible' }}>
+      {/* Blue left accent - perfectly rounded corners */}
+      <div 
+        className="absolute left-0 top-0 w-1 bg-blue-600" 
+        style={{ 
+          height: '100%', 
+          borderTopLeftRadius: '8px',
+          borderBottomLeftRadius: '8px'
+        }}
+      ></div>
       
-      <div className="p-6 pl-8">
+      <div className="pl-8 pr-6 py-6">
         
         {/* Question header */}
         <div className="flex items-start justify-between mb-4">
@@ -413,25 +420,26 @@ export default function QuestionCard({
               value={question || ''}
               onChange={(value) => setQuestion(value)}
               placeholder="Untitled question"
-              className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
-              style={{ minHeight: '32px' }}
+              className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded-md px-3 py-2 -mx-3 transition-colors"
+              style={{ minHeight: '40px', lineHeight: '1.4' }}
             />
             
             {/* Description input - Shows when user enables it from 3-dot menu */}
             {showDescription && (
-                <div className="mt-3">
+                <div className="mt-4">
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Add description"
                     rows={2}
-                    className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-2 -mx-2 transition-colors resize-none"
+                    className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded-md px-3 py-2 -mx-3 transition-colors resize-none"
+                    style={{ lineHeight: '1.4' }}
                   />
                 </div>
               )}
               
               {/* Image Upload Component */}
-              <div className="mt-3">
+              <div className="mt-4">
                 <ImageUpload
                   imageUrl={imageUrl}
                   onImageUpload={handleImageUpload}

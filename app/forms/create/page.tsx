@@ -38,6 +38,15 @@ export default function CreateFormPage() {
   const [formDescription, setFormDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  
+  // Track if there are unsaved changes
+  const hasUnsavedChanges = () => {
+    const hasContent = formTitle.trim() !== "Untitled form" || 
+                      formDescription.trim() !== "" || 
+                      questions.some(q => q.question.trim() !== "");
+    return hasContent;
+  };
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: "1",
@@ -123,6 +132,7 @@ export default function CreateFormPage() {
     }
 
     setSaving(true);
+    setJustSaved(false);
     try {
       const formData = {
         title: formTitle,
@@ -143,15 +153,23 @@ export default function CreateFormPage() {
       const result = await response.json();
       
       if (result.success) {
-        if (published) {
-          // Redirect to home page only when publishing
-          window.location.href = '/';
-        } else {
-          // For draft save, redirect to edit page to avoid form duplication
-          // This ensures the user can continue editing the same form
-          window.location.href = `/forms/${result.formId}`;
-        }
+        // Show saved state briefly
+        setJustSaved(true);
+        setSaving(false);
+        
+        // Brief delay to show "Saved!" then redirect
+        setTimeout(() => {
+          if (published) {
+            // Redirect to home page only when publishing
+            window.location.href = '/';
+          } else {
+            // For draft save, redirect to edit page to avoid form duplication
+            // This ensures the user can continue editing the same form
+            window.location.href = `/forms/${result.formId}`;
+          }
+        }, 1000);
       } else {
+        setSaving(false);
         alert('Error saving form: ' + (result.message || 'Unknown error'));
       }
     } catch (error) {
@@ -179,13 +197,21 @@ export default function CreateFormPage() {
         }
       };
 
+      const handleNavbarSave = () => {
+        if (typeof handleSaveForm === 'function') {
+          handleSaveForm(false); // Save as draft
+        }
+      };
+
       navbarEvents.subscribe('publishForm', handleNavbarPublish);
       navbarEvents.subscribe('previewForm', handleNavbarPreview);
+      navbarEvents.subscribe('saveForm', handleNavbarSave);
       
       // Store cleanup function
       cleanup = () => {
         navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
         navbarEvents.unsubscribe('previewForm', handleNavbarPreview);
+        navbarEvents.unsubscribe('saveForm', handleNavbarSave);
       };
     }, 10);
     
@@ -194,6 +220,35 @@ export default function CreateFormPage() {
       cleanup?.();
     };
   }, []);
+
+  // Effect to show/hide preview button based on changes
+  useEffect(() => {
+    const previewButton = document.getElementById('preview-button');
+    const saveButton = document.getElementById('save-button-create');
+    const saveText = document.getElementById('save-text-create');
+    
+    if (previewButton && saveButton && saveText) {
+      const hasChanges = hasUnsavedChanges();
+      
+      if (saving) {
+        saveButton.setAttribute('disabled', 'true');
+        saveText.textContent = 'Saving...';
+        previewButton.style.display = 'none';
+      } else if (justSaved) {
+        saveButton.setAttribute('disabled', 'true');
+        saveText.textContent = 'Saved!';
+        previewButton.style.display = 'flex';
+      } else if (hasChanges) {
+        previewButton.style.display = 'none';
+        saveButton.removeAttribute('disabled');
+        saveText.textContent = 'Save Draft';
+      } else {
+        previewButton.style.display = 'flex';
+        saveButton.setAttribute('disabled', 'true');
+        saveText.textContent = 'No Changes';
+      }
+    }
+  }, [formTitle, formDescription, questions, saving, justSaved]);
 
   // Show loading or redirect content (after all hooks)
   if (!isLoaded) {
@@ -613,32 +668,6 @@ export default function CreateFormPage() {
           <Link href="/">
             <Button variant="outline">← Back to Home</Button>
           </Link>
-          <div>
-            <Button 
-              variant="outline" 
-              onClick={() => handleSaveForm(false)}
-              disabled={saving}
-              className={`disabled:opacity-50 transition-all duration-200 ${
-                saved ? 'bg-green-100 border-green-300 text-green-700' : ''
-              }`}
-            >
-              {saving ? (
-                <div className="flex items-center space-x-2">
-                  <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Saving...</span>
-                </div>
-              ) : saved ? (
-                <div className="flex items-center space-x-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span>Saved</span>
-                </div>
-              ) : (
-                'Save Draft'
-              )}
-            </Button>
-          </div>
         </div>
 
       </div>

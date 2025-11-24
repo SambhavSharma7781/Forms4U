@@ -86,6 +86,7 @@ export default function Form() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [loadingResponses, setLoadingResponses] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'questions' | 'responses' | 'settings'>('questions');
@@ -296,14 +297,20 @@ export default function Form() {
       toggleResponseAcceptance();
     };
 
+    const handleNavbarSave = () => {
+      saveForm();
+    };
+
     navbarEvents.subscribe('publishForm', handleNavbarPublish);
     navbarEvents.subscribe('unpublishForm', handleNavbarUnpublish);
     navbarEvents.subscribe('toggleResponses', handleToggleResponses);
+    navbarEvents.subscribe('saveForm', handleNavbarSave);
     
     return () => {
       navbarEvents.unsubscribe('publishForm', handleNavbarPublish);
       navbarEvents.unsubscribe('unpublishForm', handleNavbarUnpublish);
       navbarEvents.unsubscribe('toggleResponses', handleToggleResponses);
+      navbarEvents.unsubscribe('saveForm', handleNavbarSave);
     };
   }, [isExistingForm, formData.published, formData.sections, formData.id, loading]);
 
@@ -339,6 +346,108 @@ export default function Form() {
       });
     };
   }, []);
+
+  // Effect to show/hide preview button and update save button text based on changes
+  useEffect(() => {
+    // Only run after component is fully mounted to avoid DOM issues
+    const timeout = setTimeout(() => {
+      const previewButton = document.getElementById('preview-button-edit');
+      const saveButtonPublished = document.getElementById('save-button-edit-published');
+      const saveButtonDraft = document.getElementById('save-button-edit-draft');
+      const saveTextPublished = document.getElementById('save-text-edit-published');
+      const saveTextDraft = document.getElementById('save-text-edit-draft');
+      
+      // Only proceed if we have the necessary data to check for changes
+      if (originalFormData && originalSettings) {
+        // Use the actual hasUnsavedChanges function for accurate detection
+        let hasChanges = false;
+        try {
+          // Compare title and description
+          if (formData.title !== originalFormData.title || 
+              formData.description !== originalFormData.description) {
+            hasChanges = true;
+          }
+          
+          // Compare form settings
+          if (JSON.stringify(formSettings) !== JSON.stringify(originalSettings)) {
+            hasChanges = true;
+          }
+          
+          // Compare sections length
+          if ((formData.sections || []).length !== (originalFormData.sections || []).length) {
+            hasChanges = true;
+          }
+          
+          // Compare questions if no changes found yet
+          if (!hasChanges) {
+            const currentQuestions = getAllQuestions(formData.sections || []);
+            const originalQuestions = getAllQuestions(originalFormData.sections || []);
+            
+            if (currentQuestions.length !== originalQuestions.length) {
+              hasChanges = true;
+            } else {
+              for (let i = 0; i < currentQuestions.length && !hasChanges; i++) {
+                const currentQ = currentQuestions[i];
+                const originalQ = originalQuestions[i];
+                
+                if (!originalQ || currentQ.text !== originalQ.text || 
+                    currentQ.type !== originalQ.type || currentQ.required !== originalQ.required) {
+                  hasChanges = true;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          // If comparison fails, assume no changes to be safe
+          hasChanges = false;
+        }
+        
+        if (previewButton) {
+          if (hasChanges) {
+            previewButton.style.display = 'none';
+          } else {
+            previewButton.style.display = 'flex';
+          }
+        }
+        
+        // Update save button for published forms
+        if (saveButtonPublished && saveTextPublished) {
+          if (saving) {
+            saveButtonPublished.setAttribute('disabled', 'true');
+            saveTextPublished.textContent = 'Saving...';
+          } else if (justSaved) {
+            saveButtonPublished.setAttribute('disabled', 'true');
+            saveTextPublished.textContent = 'Saved!';
+          } else if (hasChanges) {
+            saveButtonPublished.removeAttribute('disabled');
+            saveTextPublished.textContent = 'Save Changes';
+          } else {
+            saveButtonPublished.setAttribute('disabled', 'true');
+            saveTextPublished.textContent = 'No Changes';
+          }
+        }
+        
+        // Update save button for draft forms
+        if (saveButtonDraft && saveTextDraft) {
+          if (saving) {
+            saveButtonDraft.setAttribute('disabled', 'true');
+            saveTextDraft.textContent = 'Saving...';
+          } else if (justSaved) {
+            saveButtonDraft.setAttribute('disabled', 'true');
+            saveTextDraft.textContent = 'Saved!';
+          } else if (hasChanges) {
+            saveButtonDraft.removeAttribute('disabled');
+            saveTextDraft.textContent = 'Save Draft';
+          } else {
+            saveButtonDraft.setAttribute('disabled', 'true');
+            saveTextDraft.textContent = 'No Changes';
+          }
+        }
+      }
+    }, 100);
+    
+    return () => clearTimeout(timeout);
+  }, [formData, formSettings, originalFormData, originalSettings, saving, justSaved]);
 
   // Show loading spinner while checking authentication
   if (!isLoaded) {
@@ -766,7 +875,20 @@ export default function Form() {
       return;
     }
 
+    // Validate that all sections have at least one question
+    const sectionsWithoutQuestions = (formData.sections || []).filter(section => 
+      !section.questions || section.questions.length === 0 || 
+      section.questions.every(q => !q.text || q.text.trim() === '')
+    );
+
+    if (sectionsWithoutQuestions.length > 0) {
+      const sectionNames = sectionsWithoutQuestions.map(section => section.title || 'Untitled Section').join(', ');
+      alert(`Cannot save form: The following sections are empty and need at least one question with text: ${sectionNames}`);
+      return;
+    }
+
     setSaving(true);
+    setJustSaved(false);
     try {
       // For existing forms, preserve current published status unless explicitly specified
       // For new forms, use the forcePublished parameter or default to false
@@ -850,6 +972,12 @@ export default function Form() {
         
         // Also update original settings to reflect saved state
         setOriginalSettings(formSettings);
+        
+        // Show saved state briefly
+        setJustSaved(true);
+        setTimeout(() => {
+          setJustSaved(false);
+        }, 2000);
         
         // Update navbar with new status
         navbarEvents.emit('formStatusUpdate', {
@@ -1095,11 +1223,35 @@ export default function Form() {
                     {formData.published ? 'Published' : 'Draft'}
                   </div>
                   {formData.published && (
-                    <div className="text-sm text-gray-600">
-                      Public link: 
-                      <span className="ml-1 text-blue-600 font-mono">
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <span>Public link:</span>
+                      <span className="text-blue-600 font-mono">
                         {typeof window !== 'undefined' ? `${window.location.origin}/forms/${formId}/view` : ''}
                       </span>
+                      <button 
+                        onClick={() => {
+                          const url = `${window.location.origin}/forms/${formId}/view`;
+                          navigator.clipboard.writeText(url);
+                          setLinkCopied(true);
+                          setTimeout(() => setLinkCopied(false), 2000);
+                        }}
+                        className={`p-1.5 rounded-md transition-all duration-200 flex items-center ${
+                          linkCopied 
+                            ? 'text-green-600 bg-green-50 hover:bg-green-100' 
+                            : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+                        }`}
+                        title={linkCopied ? 'Copied!' : 'Copy link'}
+                      >
+                        {linkCopied ? (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1314,29 +1466,6 @@ export default function Form() {
               <Link href="/" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
                 ← Back to Home
               </Link>
-              
-              {/* Save Button */}
-              <button
-                onClick={() => {
-                  saveForm();
-                }}
-                disabled={saving || (!hasUnsavedChanges() && isExistingForm)}
-                className={`inline-flex items-center px-4 py-2 border rounded-md shadow-sm text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
-                  hasUnsavedChanges() || !isExistingForm
-                    ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700' 
-                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {(() => {
-                  const hasChanges = hasUnsavedChanges();
-                  
-                  if (saving) return 'Saving...';
-                  if (hasChanges || !isExistingForm) {
-                    return formData.published ? 'Save Changes' : 'Save Draft';
-                  }
-                  return 'No Changes';
-                })()}
-              </button>
             </div>
           </>
         )}

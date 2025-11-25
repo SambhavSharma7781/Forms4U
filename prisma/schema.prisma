@@ -127,8 +127,8 @@ model Answer {
   selectedOptions String[]  @default([])
   
   // Quiz grading
-  isCorrect      Boolean?  // null for regular forms, true/false for quiz
-  pointsEarned   Int?      // Points earned for this answer
+  isCorrect      Boolean?
+  pointsEarned   Int?      
   
   response       Response  @relation(fields: [responseId], references: [id])
   question       Question  @relation(fields: [questionId], references: [id])

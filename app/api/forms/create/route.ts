@@ -77,8 +77,8 @@ export async function POST(request: NextRequest) {
         
         const createdSection = await prisma.section.create({
           data: {
-            title: sectionData.title || `Section ${sectionIndex + 1}`,
-            description: sectionData.description || null,
+            title: sectionData.title ?? "",
+            description: sectionData.description ?? "",
             order: sectionIndex,
             formId: form.id
           }

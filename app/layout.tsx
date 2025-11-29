@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "NextForms - Create Beautiful Forms",
+  title: "Forms4U - Create Beautiful Forms",
   description: "Create forms, collect responses, and analyze data",
 };
 
@@ -29,6 +29,11 @@ export default function RootLayout({
       <html lang="en">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col overflow-x-hidden`}
+          style={{ 
+            backgroundColor: '#f3f4f6', 
+            backgroundAttachment: 'fixed',
+            overscrollBehavior: 'none'
+          }}
         >
           <Navbar />
           <main className="pt-0 flex-1 relative">

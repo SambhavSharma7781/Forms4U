@@ -32,6 +32,7 @@ interface QuestionCardProps {
   isQuiz?: boolean;
   initialPoints?: number;
   initialCorrectAnswers?: string[];
+  themeColor?: string;
   onDelete?: () => void;
   onDuplicate?: () => void;
   onAddSectionAfter?: () => void; // 🆕 NEW: Add section after this question
@@ -61,6 +62,7 @@ export default function QuestionCard({
   isQuiz = false,
   initialPoints = 1,
   initialCorrectAnswers = [],
+  themeColor = "#4285F4",
   onDelete,
   onDuplicate,
   onAddSectionAfter, // 🆕 NEW: Add section callback
@@ -101,6 +103,8 @@ export default function QuestionCard({
     if (onUpdate && id) {
       const filteredOptions = options.filter(opt => opt.text.trim() !== "" || opt.imageUrl);
       
+      console.log("notifyParent called with question:", question);
+
       onUpdate({
         id,
         question,
@@ -400,14 +404,15 @@ export default function QuestionCard({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 group hover:shadow-md transition-all duration-200 relative" style={{ overflow: 'visible' }}>
-      {/* Blue left accent - perfectly rounded corners */}
+    <div className="bg-white rounded-lg shadow-sm mb-6 group hover:shadow-md transition-all duration-200 relative" style={{ overflow: 'visible' }}>
+      {/* Left accent - perfectly rounded corners */}
       <div 
-        className="absolute left-0 top-0 w-1 bg-blue-600" 
+        className="absolute left-0 top-0 w-1" 
         style={{ 
           height: '100%', 
           borderTopLeftRadius: '8px',
-          borderBottomLeftRadius: '8px'
+          borderBottomLeftRadius: '8px',
+          backgroundColor: themeColor
         }}
       ></div>
       
@@ -480,7 +485,8 @@ export default function QuestionCard({
               <span className="text-sm text-gray-600 font-medium">Required</span>
               <button
                 onClick={() => setRequired(!required)}
-                className={`transition-colors ${required ? 'text-blue-600' : 'text-gray-400'}`}
+                className={`transition-colors`}
+                style={{ color: required ? themeColor : '#9CA3AF' }}
                 title={required ? 'Make optional' : 'Make required'}
               >
                 {required ? <ToggleRight className="w-8 h-5" /> : <ToggleLeft className="w-8 h-5" />}
@@ -562,7 +568,10 @@ export default function QuestionCard({
                                 <div className="text-xs text-gray-500 mt-0.5">Randomize option order for respondents</div>
                               </div>
                             </div>
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${shuffleOptionsOrder ? 'bg-blue-600 border-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
+                            <div 
+                              className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${shuffleOptionsOrder ? 'border-2' : 'border-gray-300 group-hover:border-gray-400'}`}
+                              style={shuffleOptionsOrder ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                            >
                               {shuffleOptionsOrder && (
                                 <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -597,7 +606,10 @@ export default function QuestionCard({
                               <div className="text-xs text-gray-500 mt-0.5">Add helper text for this question</div>
                             </div>
                           </div>
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${showDescription ? 'bg-blue-600 border-blue-600' : 'border-gray-300 group-hover:border-blue-400'}`}>
+                          <div 
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${showDescription ? 'border-2' : 'border-gray-300 group-hover:border-gray-400'}`}
+                            style={showDescription ? { backgroundColor: themeColor, borderColor: themeColor } : {}}
+                          >
                             {showDescription && (
                               <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

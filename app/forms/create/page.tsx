@@ -120,20 +120,28 @@ export default function CreateFormPage() {
       return;
     }
 
-    // Validate and clean questions before saving
-    const validQuestions = questions.filter(q => q.question.trim() !== '').map(q => ({
-      ...q,
-      options: q.options?.filter(opt => opt.text.trim() !== '' || opt.imageUrl) || []
-    }));
-
-    if (validQuestions.length === 0) {
-      alert('Please add at least one question with text');
-      return;
-    }
-
     setSaving(true);
     setJustSaved(false);
-    try {
+    setTimeout(() => {
+      console.log("Current questions state before validation:", questions);
+      const validQuestions = questions.filter(q => {
+        console.log("Checking question validity:", q.question);
+        const isValid = q.question.trim() !== "";
+        console.log("Is question valid?", isValid);
+        return isValid;
+      }).map(q => ({
+        ...q,
+        options: q.options?.filter(opt => opt.text.trim() !== '' || opt.imageUrl) || []
+      }));
+
+      console.log("Filtered valid questions:", validQuestions);
+
+      if (validQuestions.length === 0) {
+        // alert("Please add at least one question with text");
+        setSaving(false);
+        return;
+      }
+
       const formData = {
         title: formTitle,
         description: formDescription,
@@ -142,41 +150,34 @@ export default function CreateFormPage() {
         settings: formSettings
       };
 
-      const response = await fetch('/api/forms/create', {
+      fetch('/api/forms/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
-      });
-
-      const result = await response.json();
-      
-      if (result.success) {
-        // Show saved state briefly
-        setJustSaved(true);
-        setSaving(false);
-        
-        // Brief delay to show "Saved!" then redirect
-        setTimeout(() => {
-          if (published) {
-            // Redirect to home page only when publishing
-            window.location.href = '/';
+      })
+        .then(response => response.json())
+        .then(result => {
+          if (result.success) {
+            setJustSaved(true);
+            setSaving(false);
+            setTimeout(() => {
+              if (published) {
+                window.location.href = '/';
+              } else {
+                window.location.href = `/forms/${result.formId}`;
+              }
+            }, 1000);
           } else {
-            // For draft save, redirect to edit page to avoid form duplication
-            // This ensures the user can continue editing the same form
-            window.location.href = `/forms/${result.formId}`;
+            setSaving(false);
+            alert('Error saving form: ' + (result.message || 'Unknown error'));
           }
-        }, 1000);
-      } else {
-        setSaving(false);
-        alert('Error saving form: ' + (result.message || 'Unknown error'));
-      }
-    } catch (error) {
-      // Error handling can be added here if needed
-    } finally {
-      setSaving(false);
-    }
+        })
+        .catch(() => {
+          setSaving(false);
+        });
+    }, 0);
   };
 
   // Listen for navbar button clicks
@@ -302,23 +303,87 @@ export default function CreateFormPage() {
     points?: number;
     correctAnswers?: string[];
   }) => {
-    setQuestions(questions.map(q => 
-      q.id === updatedData.id 
-        ? { 
-            ...q, 
-            question: updatedData.question,
-            description: updatedData.description, // Add description to the update
-            type: updatedData.type,
-            required: updatedData.required,
-            options: updatedData.options,
-            shuffleOptionsOrder: updatedData.shuffleOptionsOrder,
-            imageUrl: updatedData.imageUrl, // Add image URL to the update
-            points: updatedData.points,
-            correctAnswers: updatedData.correctAnswers
-          }
-        : q
-    ));
+    setQuestions((prevQuestions) => {
+      const updatedQuestions = prevQuestions.map((q) =>
+        q.id === updatedData.id
+          ? {
+              ...q,
+              question: updatedData.question,
+              description: updatedData.description,
+              type: updatedData.type,
+              required: updatedData.required,
+              options: updatedData.options,
+              shuffleOptionsOrder: updatedData.shuffleOptionsOrder,
+              imageUrl: updatedData.imageUrl,
+              points: updatedData.points,
+              correctAnswers: updatedData.correctAnswers,
+            }
+          : q
+      );
+      console.log("Updated questions state:", updatedQuestions);
+      return updatedQuestions;
+    });
   };
+
+  // Validation and save effect
+  useEffect(() => {
+    console.log("useEffect triggered with saving:", saving);
+
+    if (!saving) {
+      console.log("Saving is false, skipping logic.");
+      return;
+    }
+
+    const validQuestions = questions.filter((q) => {
+      console.log("Checking question validity:", q.question);
+      const isValid = q.question.trim() !== "";
+      console.log("Is question valid?", isValid);
+      return isValid;
+    }).map((q) => ({
+      ...q,
+      options: q.options?.filter((opt) => opt.text.trim() !== "" || opt.imageUrl) || [],
+    }));
+
+    console.log("Filtered valid questions:", validQuestions);
+
+    if (validQuestions.length === 0) {
+      // alert("Please add at least one question with text");
+      setSaving(false);
+      return;
+    }
+
+    const formData = {
+      title: formTitle,
+      description: formDescription,
+      questions: validQuestions,
+      published: false,
+      settings: formSettings,
+    };
+
+    fetch("/api/forms/create", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    })
+      .then((response) => response.json())
+      .then((result) => {
+        if (result.success) {
+          setJustSaved(true);
+          setSaving(false);
+          setTimeout(() => {
+            window.location.href = `/forms/${result.formId}`;
+          }, 1000);
+        } else {
+          setSaving(false);
+          alert("Error saving form: " + (result.message || "Unknown error"));
+        }
+      })
+      .catch(() => {
+        setSaving(false);
+      });
+  }, [saving, questions]);
 
   return (
     <div className="min-h-screen bg-blue-50">

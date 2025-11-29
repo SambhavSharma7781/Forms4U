@@ -117,7 +117,10 @@ export default function Form() {
     releaseGrades: true,
     // Response editing settings
     allowResponseEditing: false,
-    editTimeLimit: '24h'
+    editTimeLimit: '24h',
+    // Theme settings
+    themeColor: '#4285F4', // Default blue
+    themeBackground: 'rgba(66, 133, 244, 0.1)' // Light blue background
   });
   
   // Track original settings for change detection
@@ -134,10 +137,203 @@ export default function Form() {
     releaseGrades: true,
     // Response editing settings
     allowResponseEditing: false,
-    editTimeLimit: '24h'
+    editTimeLimit: '24h',
+    // Theme settings
+    themeColor: '#4285F4', // Default blue
+    themeBackground: 'rgba(66, 133, 244, 0.1)' // Light blue background
   });
 
+  // Check if settings have unsaved changes
+  const hasUnsavedSettingsChanges = () => {
+    return JSON.stringify(formSettings) !== JSON.stringify(originalSettings);
+  };
+
+  // Check if form has unsaved changes (including section title/description)
+  const hasUnsavedChanges = () => {
+    // For new forms (no original data), always allow saving if there's content
+    if (!originalFormData) {
+      console.log('🔍 CHANGE DETECTION - No original form data, allowing save.');
+      return true; // Allow saving new forms
+    }
+
+    // Compare title and description
+    console.log('🔍 CHANGE DETECTION - Comparing title and description:', {
+      currentTitle: formData.title,
+      originalTitle: originalFormData.title,
+      currentDescription: formData.description,
+      originalDescription: originalFormData.description
+    });
+
+    if (formData.title !== originalFormData.title || 
+        formData.description !== originalFormData.description) {
+      console.log('🔍 CHANGE DETECTION - Title or description changed.');
+      return true;
+    }
+
+    // Compare form settings (including quiz settings)
+    if (hasUnsavedSettingsChanges()) {
+      return true;
+    }
+
+    // Compare sections (title, description, count)
+    const currentSections = formData.sections || [];
+    const originalSections = originalFormData.sections || [];
+
+    if (currentSections.length !== originalSections.length) {
+      return true;
+    }
+
+    // Compare each section's title and description
+    for (let i = 0; i < currentSections.length; i++) {
+      const currentSection = currentSections[i];
+      const originalSection = originalSections[i];
+      
+      if (!originalSection) {
+        console.log('🔍 CHANGE DETECTION - New section detected');
+        return true; // New section
+      }
+      
+      // Normalize section titles and descriptions for comparison
+      const currentTitle = currentSection.title || '';
+      const originalTitle = originalSection.title || '';
+      const currentDesc = currentSection.description || '';
+      const originalDesc = originalSection.description || '';
+      
+      console.log('🔍 CHANGE DETECTION - Comparing section:', {
+        index: i,
+        currentTitle,
+        originalTitle,
+        currentDesc,
+        originalDesc,
+        titleChanged: currentTitle !== originalTitle,
+        descChanged: currentDesc !== originalDesc
+      });
+      
+      if (currentTitle !== originalTitle || currentDesc !== originalDesc) {
+        console.log('🔍 CHANGE DETECTION - Section change detected!');
+        return true;
+      }
+    }
+
+    const currentQuestions = getAllQuestions(formData.sections || []);
+    const originalQuestions = getAllQuestions(originalFormData.sections || []);
+
+    // Compare questions count
+    if (currentQuestions.length !== originalQuestions.length) {
+      return true;
+    }
+
+    // Compare each question
+    for (let i = 0; i < currentQuestions.length; i++) {
+      const currentQ = currentQuestions[i];
+      const originalQ = originalQuestions[i];
+      
+      if (!originalQ) {
+        return true; // New question
+      }
+      
+      if (currentQ.text !== originalQ.text) {
+        return true;
+      }
+      
+      if ((currentQ.description || '') !== (originalQ.description || '')) {
+        return true;
+      }
+      
+      if (currentQ.type !== originalQ.type ||
+          currentQ.required !== originalQ.required ||
+          (currentQ.shuffleOptionsOrder || false) !== (originalQ.shuffleOptionsOrder || false) ||
+          (currentQ.imageUrl || '') !== (originalQ.imageUrl || '')) {
+        return true;
+      }
+      
+      // Compare quiz fields
+      if ((currentQ.points || 1) !== (originalQ.points || 1)) {
+        return true;
+      }
+      
+      // Compare correct answers
+      const currentCorrectAnswers = JSON.stringify(currentQ.correctAnswers || []);
+      const originalCorrectAnswers = JSON.stringify(originalQ.correctAnswers || []);
+      if (currentCorrectAnswers !== originalCorrectAnswers) {
+        return true;
+      }
+      
+      // Compare options for questions that have them
+      const currentOptions = currentQ.options?.filter((opt: any) => opt.text.trim() !== "") || [];
+      const originalOptions = originalQ.options?.filter((opt: any) => opt.text.trim() !== "") || [];
+      
+      if (currentOptions.length !== originalOptions.length) {
+        return true;
+      }
+      
+      for (let j = 0; j < currentOptions.length; j++) {
+        if (currentOptions[j].text !== originalOptions[j].text ||
+            (currentOptions[j].imageUrl || '') !== (originalOptions[j].imageUrl || '')) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  };
+
   const isExistingForm = formId !== 'create';
+
+  // Theme customization
+  const [showCustomColorInput, setShowCustomColorInput] = useState(false);
+  
+  const predefinedColors = [
+    { name: 'Red', value: '#db4437' },
+    { name: 'Purple', value: '#673ab7' },
+    { name: 'Indigo', value: '#3f51b5' },
+    { name: 'Blue', value: '#4285F4' },
+    { name: 'Green', value: '#4caf50' },
+    { name: 'Orange', value: '#ff9800' },
+    { name: 'Gray', value: '#9e9e9e' },
+    { name: 'Blue Gray', value: '#607d8b' },
+    { name: 'Red Orange', value: '#ff5722' },
+    { name: 'Cyan', value: '#00bcd4' },
+    { name: 'Teal', value: '#009688' },
+    { name: 'Light Blue', value: '#03a9f4' }
+  ];
+  
+  const getBackgroundOptions = (color: string) => {
+    // Convert hex to RGB for lighter shades
+    const hexToRgb = (hex: string) => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : { r: 66, g: 133, b: 244 }; // Default blue
+    };
+    
+    const rgb = hexToRgb(color);
+    
+    return [
+      { 
+        name: 'Light', 
+        value: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`,
+        preview: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)` 
+      },
+      { 
+        name: 'Medium', 
+        value: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`,
+        preview: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)` 
+      },
+      { 
+        name: 'Dark', 
+        value: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
+        preview: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)` 
+      },
+      { 
+        name: 'White', 
+        value: 'white',
+        preview: '#ffffff' 
+      }
+    ];
+  };
 
   // Helper function to get all questions from sections (flattened)
   const getAllQuestions = (sections: Section[]): Question[] => {
@@ -228,8 +424,13 @@ export default function Form() {
     if (isLoaded) {
       if (isSignedIn) {
         if (isExistingForm) {
-          fetchFormData();
-          fetchResponseCount();
+          // Only fetch on initial load, not on subsequent auth state changes
+          // Check if we haven't already loaded the form data
+          if (!formData.id) {
+            console.log('🔵 INITIAL LOAD - Fetching form data for the first time');
+            fetchFormData();
+            fetchResponseCount();
+          }
         } else {
           // New form - start fresh
           setLoading(false);
@@ -238,7 +439,7 @@ export default function Form() {
         setLoading(false);
       }
     }
-  }, [isSignedIn, isLoaded, formId]);
+  }, [isSignedIn, isLoaded]); // Removed formId from dependencies
 
   // Auto-refresh responses when on responses tab
   useEffect(() => {
@@ -261,28 +462,46 @@ export default function Form() {
 
   // Listen for navbar publish button clicks
   useEffect(() => {
-    const handleNavbarPublish = () => {
+    const handleNavbarPublish = async () => {
       if (loading || !formData.id || !formData.sections || formData.sections.length === 0) {
         alert('Please wait for the form to load completely before publishing');
         return;
       }
-      
+
       const allQuestions = getAllQuestions(formData.sections || []);
       const validQuestions = allQuestions.filter((q: any) => q.text && q.text.trim() !== '');
-      
+
       if (validQuestions.length === 0) {
         alert('Please add at least one question to publish this form');
         return;
       }
-      
-      if (isExistingForm) {
-        // For existing forms, can only publish if not already published
-        if (!formData.published) {
-          togglePublishStatus();
+
+      try {
+        // Ensure unsaved changes are saved first
+        if (hasUnsavedChanges()) {
+          console.log('🔍 Unsaved changes detected. Saving form before publishing...');
+          await saveForm();
+          console.log('🔍 Form saved successfully. Updated formData:', formData);
         }
-      } else {
-        // For new forms, save and publish
-        saveForm(true);
+
+        // Double-check that title and description are saved
+        if (!formData.title.trim() || !formData.description.trim()) {
+          alert('Form title and description must be saved before publishing.');
+          return;
+        }
+
+        // Handle publishing logic
+        if (isExistingForm) {
+          if (!formData.published) {
+            togglePublishStatus();
+          }
+        } else {
+          await saveForm(true); // Save and publish for new forms
+          console.log('🔍 Form published successfully. Updated formData:', formData);
+        }
+      } catch (error) {
+        console.error('❌ Error during save or publish:', error);
+        alert('An error occurred while saving or publishing the form. Please try again.');
       }
     };
 
@@ -318,20 +537,37 @@ export default function Form() {
   useEffect(() => {
     // Only update navbar after form data is fully loaded and published status is defined
     if (formData.id && isExistingForm && !loading && formData.published !== undefined) {
+      const hasChanges = hasUnsavedChanges();
       navbarEvents.emit('formStatusUpdate', {
         published: formData.published,
         acceptingResponses: formData.acceptingResponses,
         formId: formData.id,
-        title: formData.title
+        title: formData.title,
+        hasChanges: hasChanges,
+        saving: saving,
+        justSaved: justSaved
       });
     }
-  }, [formData.published, formData.acceptingResponses, formData.id, formData.title, isExistingForm, loading]);
+  }, [formData.published, formData.acceptingResponses, formData.id, formData.title, isExistingForm, loading, saving, justSaved, formData, formSettings]);
 
   // Sync formData with formSettings changes for components that rely on formData
   useEffect(() => {
     setFormData(prev => ({
       ...prev,
-      ...formSettings
+      // Only sync specific settings properties, don't overwrite title/description/sections
+      shuffleQuestions: formSettings.shuffleQuestions,
+      collectEmail: formSettings.collectEmail,
+      allowMultipleResponses: formSettings.allowMultipleResponses,
+      showProgress: formSettings.showProgress,
+      confirmationMessage: formSettings.confirmationMessage,
+      defaultRequired: formSettings.defaultRequired,
+      isQuiz: formSettings.isQuiz,
+      showCorrectAnswers: formSettings.showCorrectAnswers,
+      releaseGrades: formSettings.releaseGrades,
+      allowResponseEditing: formSettings.allowResponseEditing,
+      editTimeLimit: formSettings.editTimeLimit,
+      themeColor: formSettings.themeColor,
+      themeBackground: formSettings.themeBackground
     }));
   }, [formSettings]);
 
@@ -359,48 +595,8 @@ export default function Form() {
       
       // Only proceed if we have the necessary data to check for changes
       if (originalFormData && originalSettings) {
-        // Use the actual hasUnsavedChanges function for accurate detection
-        let hasChanges = false;
-        try {
-          // Compare title and description
-          if (formData.title !== originalFormData.title || 
-              formData.description !== originalFormData.description) {
-            hasChanges = true;
-          }
-          
-          // Compare form settings
-          if (JSON.stringify(formSettings) !== JSON.stringify(originalSettings)) {
-            hasChanges = true;
-          }
-          
-          // Compare sections length
-          if ((formData.sections || []).length !== (originalFormData.sections || []).length) {
-            hasChanges = true;
-          }
-          
-          // Compare questions if no changes found yet
-          if (!hasChanges) {
-            const currentQuestions = getAllQuestions(formData.sections || []);
-            const originalQuestions = getAllQuestions(originalFormData.sections || []);
-            
-            if (currentQuestions.length !== originalQuestions.length) {
-              hasChanges = true;
-            } else {
-              for (let i = 0; i < currentQuestions.length && !hasChanges; i++) {
-                const currentQ = currentQuestions[i];
-                const originalQ = originalQuestions[i];
-                
-                if (!originalQ || currentQ.text !== originalQ.text || 
-                    currentQ.type !== originalQ.type || currentQ.required !== originalQ.required) {
-                  hasChanges = true;
-                }
-              }
-            }
-          }
-        } catch (error) {
-          // If comparison fails, assume no changes to be safe
-          hasChanges = false;
-        }
+        // Use the canonical hasUnsavedChanges helper for detection
+        const hasChanges = hasUnsavedChanges();
         
         if (previewButton) {
           if (hasChanges) {
@@ -460,20 +656,37 @@ export default function Form() {
   }
 
   // Fetch form data function
-  const fetchFormData = async () => {
+  const fetchFormData = async (shouldUpdateOriginal = true) => {
     try {
-      const response = await fetch(`/api/forms/${formId}`);
+      // Add debug logs to fetchFormData
+      console.log('🔍 DEBUG - Refetching form data for formId:', formId);
+      
+      // Add cache-busting headers to fetchFormData
+      const response = await fetch(`/api/forms/${formId}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       const data = await response.json();
       
-    if (data.success) {
+      if (data.success) {
+        console.log('🔍 FETCHED FORM DATA - Title from DB:', data.form.title);
+        console.log('🔍 FETCHED FORM DATA - Description from DB:', data.form.description);
         console.log('🔍 FETCHED FORM DATA - Sections:', data.form.sections?.map((s: any) => ({
           title: s.title,
           description: s.description,
           questionsCount: s.questions?.length || 0
         })));
         
+        // Add debug logs to setFormData
+        console.log('🔍 DEBUG - Updating formData state with:', data.form);
         setFormData(data.form);
-        setOriginalFormData(data.form); // Store original data for comparison
+        
+        // Only update originalFormData when initially loading the form, not after saves
+        if (shouldUpdateOriginal) {
+          setOriginalFormData(JSON.parse(JSON.stringify(data.form))); // Deep copy to avoid reference issues
+        }
         
         // Load form settings from the fetched data
         const loadedSettings = {
@@ -489,10 +702,21 @@ export default function Form() {
           releaseGrades: data.form.releaseGrades ?? true,
           // Response editing settings
           allowResponseEditing: data.form.allowResponseEditing || false,
-          editTimeLimit: data.form.editTimeLimit || '24h'
+          editTimeLimit: data.form.editTimeLimit || '24h',
+          // Theme settings
+          themeColor: data.form.themeColor || '#4285F4',
+          themeBackground: data.form.themeBackground || 'rgba(66, 133, 244, 0.1)'
         };
+        console.log('🎨 LOADED THEME SETTINGS:', { 
+          themeColor: loadedSettings.themeColor, 
+          themeBackground: loadedSettings.themeBackground 
+        });
         setFormSettings(loadedSettings);
-        setOriginalSettings(loadedSettings);
+        
+        // Only update originalSettings when initially loading the form, not after saves
+        if (shouldUpdateOriginal) {
+          setOriginalSettings(loadedSettings);
+        }
         
         // Update navbar with form status
         navbarEvents.emit('formStatusUpdate', {
@@ -539,120 +763,16 @@ export default function Form() {
     }
   };
 
-  // Check if settings have unsaved changes
-  const hasUnsavedSettingsChanges = () => {
-    return JSON.stringify(formSettings) !== JSON.stringify(originalSettings);
-  };
-
-  // Check if form has unsaved changes
-  const hasUnsavedChanges = () => {
-    // For new forms (no original data), always allow saving if there's content
-    if (!originalFormData) {
-      return true; // Allow saving new forms
-    }
-    
-    // Compare title and description
-    if (formData.title !== originalFormData.title || 
-        formData.description !== originalFormData.description) {
-      return true;
-    }
-    
-    // Compare form settings (including quiz settings)
-    if (hasUnsavedSettingsChanges()) {
-      return true;
-    }
-    
-    // Compare sections (title, description, count)
-    if ((formData.sections || []).length !== (originalFormData.sections || []).length) {
-      return true;
-    }
-    
-    for (let i = 0; i < (formData.sections || []).length; i++) {
-      const currentSection = (formData.sections || [])[i];
-      const originalSection = (originalFormData.sections || [])[i];
-      
-      if (!originalSection) {
-        return true; // New section
-      }
-      
-      // Compare section title and description
-      if (currentSection.title !== originalSection.title ||
-          (currentSection.description || '') !== (originalSection.description || '')) {
-        return true;
-      }
-    }
-    
-    const currentQuestions = getAllQuestions(formData.sections || []);
-    const originalQuestions = getAllQuestions(originalFormData.sections || []);
-    
-    // Compare questions count
-    if (currentQuestions.length !== originalQuestions.length) {
-      return true;
-    }
-    
-    // Compare each question
-    for (let i = 0; i < currentQuestions.length; i++) {
-      const currentQ = currentQuestions[i];
-      const originalQ = originalQuestions[i];
-      
-      if (!originalQ) {
-        return true; // New question
-      }
-      
-      if (currentQ.text !== originalQ.text) {
-        return true;
-      }
-      
-      if ((currentQ.description || '') !== (originalQ.description || '')) {
-        return true;
-      }
-      
-      if (currentQ.type !== originalQ.type ||
-          currentQ.required !== originalQ.required ||
-          (currentQ.shuffleOptionsOrder || false) !== (originalQ.shuffleOptionsOrder || false) ||
-          (currentQ.imageUrl || '') !== (originalQ.imageUrl || '')) {
-        return true;
-      }
-      
-      // Compare quiz fields
-      if ((currentQ.points || 1) !== (originalQ.points || 1)) {
-        return true;
-      }
-      
-      // Compare correct answers
-      const currentCorrectAnswers = JSON.stringify(currentQ.correctAnswers || []);
-      const originalCorrectAnswers = JSON.stringify(originalQ.correctAnswers || []);
-      if (currentCorrectAnswers !== originalCorrectAnswers) {
-        return true;
-      }
-      
-      // Compare options for questions that have them
-      // Filter empty options for consistent comparison with QuestionCard filtering
-      const currentOptions = currentQ.options?.filter((opt: any) => opt.text.trim() !== "") || [];
-      const originalOptions = originalQ.options?.filter((opt: any) => opt.text.trim() !== "") || [];
-      
-      if (currentOptions.length !== originalOptions.length) {
-        return true;
-      }
-      
-      for (let j = 0; j < currentOptions.length; j++) {
-        if (currentOptions[j].text !== originalOptions[j].text ||
-            (currentOptions[j].imageUrl || '') !== (originalOptions[j].imageUrl || '')) {
-          return true;
-        }
-      }
-    }
-    
-    return false;
-  };
+  
 
   // Form editing functions
   const updateFormTitle = (title: string) => {
-    setFormData({ ...formData, title });
+    console.log('🔵 UPDATE FORM TITLE - Setting title to:', title);
+    setFormData(prevData => ({ ...prevData, title }));
   };
 
   const updateFormDescription = (description: string) => {
-    setFormData({ ...formData, description });
+    setFormData(prevData => ({ ...prevData, description }));
   };
 
   const updateQuestion = (questionId: string, field: string, value: any) => {
@@ -703,8 +823,8 @@ export default function Form() {
     // Create new section with the moved questions plus a new empty question
     const newSection: Section = {
       id: `temp_section_${Date.now()}`,
-      title: `Section ${formData.sections.length + 1}`,
-      description: null,
+      title: '', // Set title to an empty string
+      description: '', // Set description to an empty string
       order: targetSectionIndex + 1,
       questions: [
         ...questionsToMove,
@@ -723,7 +843,7 @@ export default function Form() {
     // Update the original section to only keep questions up to the clicked question
     const updatedSections = [...formData.sections];
     updatedSections[targetSectionIndex] = {
-      ...targetSection,
+      ...updatedSections[targetSectionIndex],
       questions: questionsToKeep
     };
 
@@ -871,6 +991,15 @@ export default function Form() {
   };
 
   const saveForm = async (forcePublished?: boolean) => {
+    console.log('🔵 FRONTEND SAVE - Starting save with formData.title:', formData.title);
+    console.log('🔵 FRONTEND SAVE - Starting save with formData.description:', formData.description);
+    
+    // Prevent duplicate save calls
+    if (saving) {
+      console.log('⚠️ Save already in progress, ignoring duplicate call');
+      return;
+    }
+    
     if (!formData.title.trim()) {
       return;
     }
@@ -897,6 +1026,12 @@ export default function Form() {
         : (forcePublished !== undefined ? forcePublished : false);
       
       // Create payload with correct published status and proper data structure
+      console.log('🔵 FRONTEND SAVE - Current formData before payload:', {
+        title: formData.title,
+        description: formData.description,
+        sectionsCount: formData.sections?.length || 0
+      });
+      
       const allQuestions = getAllQuestions(formData.sections || []);
       
       // Process sections to filter out temporary IDs and structure data properly
@@ -951,8 +1086,20 @@ export default function Form() {
         settings: validateSettings(formSettings)
       };
       
+      // Add debug logs to verify the payload
+      console.log('🔍 DEBUG - Payload title:', payload.title);
+      console.log('🔍 DEBUG - Payload description:', payload.description);
+      
       const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
+      
+      console.log('🔵 FRONTEND SAVE - Payload being sent:', {
+        title: payload.title,
+        description: payload.description,
+        sectionsCount: payload.sections.length,
+        url,
+        method
+      });
       
       const response = await fetch(url, {
         method,
@@ -965,27 +1112,36 @@ export default function Form() {
       const data = await response.json();
       
       if (data.success) {
-        // Update local state
-        const updatedFormData = { ...formData, published: publishedStatus };
-        setFormData(updatedFormData);
-        setOriginalFormData(updatedFormData); // Update original data to reflect saved state
-        
-        // Also update original settings to reflect saved state
-        setOriginalSettings(formSettings);
-        
+        // Immediately update originalFormData to prevent repeated change detection
+        setOriginalFormData(JSON.parse(JSON.stringify(formData)));
+        setOriginalSettings({ ...formSettings });
+
+        // After successful save, refetch the form data to get the latest state from database
+        console.log('🔵 FRONTEND SAVE - Success, refetching form data');
+        await fetchFormData(false);
+
+        // Small delay to ensure state is fully updated, then set original data
+        setTimeout(() => {
+          setOriginalFormData(JSON.parse(JSON.stringify(formData)));
+          setOriginalSettings({ ...formSettings });
+        }, 100);
+
         // Show saved state briefly
         setJustSaved(true);
         setTimeout(() => {
           setJustSaved(false);
         }, 2000);
-        
-        // Update navbar with new status
+
+        // Update navbar with new status - clear hasChanges immediately
         navbarEvents.emit('formStatusUpdate', {
           published: publishedStatus,
           formId: formData.id || data.form?.id,
-          title: formData.title
+          title: formData.title,
+          hasChanges: false,
+          saving: false,
+          justSaved: false
         });
-        
+
         // Show appropriate message based on what happened
         let message;
         if (isExistingForm) {
@@ -1015,9 +1171,12 @@ export default function Form() {
           }
         }
       } else {
+        console.error('Save form failed:', data);
+        alert(data.message || 'Failed to save form');
       }
     } catch (error) {
-      console.error('Error saving form:', error);
+      console.error('Save form error:', error);
+      alert('Failed to save form. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1157,40 +1316,49 @@ export default function Form() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div 
+      className="min-h-screen" 
+      style={{ 
+        backgroundColor: formSettings.themeBackground.includes('rgba') || formSettings.themeBackground === 'white' ? formSettings.themeBackground : '#f3f4f6',
+        overscrollBehavior: 'none'
+      }}
+    >
       <div className="max-w-4xl mx-auto px-6 py-8">
         
         {/* Google Forms Style Tab Navigation */}
         <div className="bg-white rounded-lg border border-gray-200 mb-6 shadow-sm">
-          <div className="flex justify-between items-center border-b border-gray-200">
+          <div className="flex justify-between items-center">
             <div className="flex">
               <button
                 onClick={() => handleTabChange('questions')}
-                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all duration-200 relative ${
+                className={`px-6 py-4 text-sm font-semibold transition-colors ${
                   activeTab === 'questions'
-                    ? 'border-blue-600 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'text-current'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
+                style={activeTab === 'questions' ? { color: formSettings.themeColor } : {}}
               >
                 Questions
               </button>
               <button
                 onClick={() => handleTabChange('responses')}
-                className={`px-6 py-4 text-sm font-semibold border-b-2 transition-all duration-200 relative ${
+                className={`px-6 py-4 text-sm font-semibold transition-colors ${
                   activeTab === 'responses'
-                    ? 'border-blue-600 text-blue-600 bg-blue-50'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'text-current'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
+                style={activeTab === 'responses' ? { color: formSettings.themeColor } : {}}
               >
                 Responses {responseCount > 0 && <span className="ml-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">{responseCount}</span>}
               </button>
               <button
                 onClick={() => handleTabChange('settings')}
-                className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                className={`px-6 py-4 text-sm font-medium transition-colors ${
                   activeTab === 'settings'
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'text-current'
+                    : 'text-gray-500 hover:text-gray-700'
                 }`}
+                style={activeTab === 'settings' ? { color: formSettings.themeColor } : {}}
               >
                 Settings
               </button>
@@ -1260,23 +1428,25 @@ export default function Form() {
             )}
 
             {/* Form Header Card */}
-            <div className="bg-white rounded-lg border border-gray-200 mb-6">
-              <div className="h-3 bg-blue-600 rounded-t-lg"></div>
+            <div className="bg-white rounded-lg mb-6">
+              <div className="h-3 rounded-t-lg" style={{ backgroundColor: formSettings.themeColor }}></div>
               <div className="p-8">
-                <RichTextEditor
+                <input
+                  type="text"
                   value={formData.title || ''}
-                  onChange={(value) => updateFormTitle(value)}
+                  onChange={(e) => updateFormTitle(e.target.value)}
                   placeholder="Untitled form"
-                  className="w-full text-3xl font-normal text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
+                  className="w-full text-3xl font-normal text-gray-900 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
                   style={{ minHeight: '45px' }}
                 />
                 
-                <RichTextEditor
+                <textarea
                   value={formData.description || ''}
-                  onChange={(value) => updateFormDescription(value)}
+                  onChange={(e) => updateFormDescription(e.target.value)}
                   placeholder="Form description"
-                  className="w-full mt-4 text-base text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 resize-none transition-colors"
+                  className="w-full mt-4 text-base text-gray-600 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 resize-none transition-colors"
                   style={{ minHeight: '50px' }}
+                  rows={2}
                 />
               </div>
             </div>
@@ -1291,7 +1461,13 @@ export default function Form() {
                       <div className="mb-6">
                         {/* Section Number and Delete Button */}
                         <div className="mb-3 flex items-center justify-between">
-                          <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                          <span 
+                            className="text-sm font-medium px-3 py-1 rounded-full"
+                            style={{ 
+                              color: formSettings.themeColor, 
+                              backgroundColor: `${formSettings.themeColor}15` 
+                            }}
+                          >
                             Section {sectionIndex + 1}
                           </span>
                           {formData.sections.length > 1 && (
@@ -1307,48 +1483,45 @@ export default function Form() {
                           )}
                         </div>
                         
-                        {/* Top Line */}
-                        <div className="border-t-2 border-blue-100 mb-4"></div>
-                        
-                        {/* Section Title */}
-                        <div className="mb-3">
-                          <input
-                            type="text"
-                            value={section.title === `Section ${sectionIndex + 1}` ? '' : section.title}
-                            onChange={(e) => {
-                              const updatedSections = [...formData.sections];
-                              updatedSections[sectionIndex] = {
-                                ...updatedSections[sectionIndex],
-                                title: e.target.value || `Section ${sectionIndex + 1}`
-                              };
-                              setFormData({ ...formData, sections: updatedSections });
-                            }}
-                            placeholder={`Section ${sectionIndex + 1} Title`}
-                            className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-3 py-1 transition-colors placeholder-gray-400"
-                          />
+                        {/* Section Container - White background like form header */}
+                        <div className="bg-white rounded-lg border border-gray-200 p-6">
+                          {/* Section Title */}
+                          <div className="mb-4">
+                            <input
+                              type="text"
+                              value={section.title}
+                              onChange={(e) => {
+                                const updatedSections = [...formData.sections];
+                                updatedSections[sectionIndex] = {
+                                  ...updatedSections[sectionIndex],
+                                  title: e.target.value || `Section ${sectionIndex + 1}`
+                                };
+                                setFormData({ ...formData, sections: updatedSections });
+                              }}
+                              placeholder={`Section ${sectionIndex + 1} Title`}
+                              className="w-full text-lg font-medium text-gray-900 bg-white border-none outline-none focus:bg-gray-50 rounded px-3 py-1 transition-colors placeholder-gray-400"
+                            />
+                          </div>
+                          
+                          {/* Section Description */}
+                          <div className="mb-0">
+                            <textarea
+                              value={section.description || ''}
+                              onChange={(e) => {
+                                const updatedSections = [...formData.sections];
+                                updatedSections[sectionIndex] = {
+                                  ...updatedSections[sectionIndex],
+                                  description: e.target.value || null
+                                };
+                                setFormData({ ...formData, sections: updatedSections });
+                              }}
+                              placeholder="Section description (optional)"
+                              className="w-full text-sm text-gray-600 bg-white border-none outline-none focus:bg-gray-50 rounded px-3 py-2 transition-colors resize-none placeholder-gray-400"
+                              rows={2}
+                              style={{ minHeight: '24px' }}
+                            />
+                          </div>
                         </div>
-                        
-                        {/* Section Description */}
-                        <div className="mb-4">
-                          <textarea
-                            value={section.description || ''}
-                            onChange={(e) => {
-                              const updatedSections = [...formData.sections];
-                              updatedSections[sectionIndex] = {
-                                ...updatedSections[sectionIndex],
-                                description: e.target.value || null
-                              };
-                              setFormData({ ...formData, sections: updatedSections });
-                            }}
-                            placeholder="Section description (optional)"
-                            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-3 py-2 transition-colors resize-none placeholder-gray-400"
-                            rows={2}
-                            style={{ minHeight: '24px' }}
-                          />
-                        </div>
-                        
-                        {/* Bottom Line */}
-                        <div className="border-b-2 border-blue-100 mb-4"></div>
                       </div>
                     )}
                     
@@ -1368,6 +1541,8 @@ export default function Form() {
                         isQuiz={formSettings.isQuiz}
                         initialPoints={question.points || 1}
                         initialCorrectAnswers={question.correctAnswers || []}
+                        // Theme prop
+                        themeColor={formSettings.themeColor}
                         onDelete={() => deleteQuestion(question.id)}
                         onDuplicate={() => duplicateQuestion(question.id)}
                         onAddSectionAfter={() => addSectionAfter(question.id)}
@@ -1402,33 +1577,32 @@ export default function Form() {
                         }}
                       />
                     ))}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  No questions yet. Add your first question below.
-                </div>
-              )}
-
-              {/* Add Question Buttons for Each Section */}
-              {formData.sections && formData.sections.length > 0 && (
-                <div className="mb-6">
-                  {formData.sections.map((section, sectionIndex) => (
-                    <div key={section.id} className="mb-4">
+                    
+                    {/* Add Question Button for this Section */}
+                    <div className="mt-4 mb-6">
                       <button 
                         onClick={() => {
-                          const newQuestion: Question = {
+                          const newQuestion = {
                             id: `temp_${Date.now()}`,
                             text: '',
-                            type: 'SHORT_ANSWER',
+                            type: 'SHORT_ANSWER' as const,
                             required: formSettings.defaultRequired,
                             options: [],
                             imageUrl: ''
                           };
-                          const updatedSections = addQuestionToSections(formData.sections || [], newQuestion, section.id);
-                          setFormData({ ...formData, sections: updatedSections });
+                          
+                          const updatedSections = [...formData.sections];
+                          const targetSectionIndex = formData.sections.findIndex(s => s.id === section.id);
+                          
+                          if (targetSectionIndex !== -1) {
+                            updatedSections[targetSectionIndex].questions.push(newQuestion);
+                            setFormData({ ...formData, sections: updatedSections });
+                          }
                         }}
-                        className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                        className="inline-flex items-center space-x-2 px-4 py-2 rounded-md bg-white text-sm font-medium hover:bg-gray-50 transition-colors"
+                        style={{ 
+                          color: formSettings.themeColor
+                        }}
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -1441,7 +1615,11 @@ export default function Form() {
                         </span>
                       </button>
                     </div>
-                  ))}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No questions yet. Add your first question below.
                 </div>
               )}
 
@@ -1450,7 +1628,10 @@ export default function Form() {
                 <div className="mb-6">
                   <button 
                     onClick={addQuestion}
-                    className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-md bg-white text-sm font-medium hover:bg-gray-50 transition-colors"
+                    style={{ 
+                      color: formSettings.themeColor
+                    }}
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -1463,7 +1644,7 @@ export default function Form() {
 
             {/* Actions */}
             <div className="flex justify-between items-center">
-              <Link href="/" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+              <Link href="/" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium hover:bg-gray-50 transition-colors" style={{ color: formSettings.themeColor }}>
                 ← Back to Home
               </Link>
             </div>
@@ -1703,14 +1884,195 @@ export default function Form() {
               <div className="flex items-center mb-6">
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
                   <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.5a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900">Form Settings</h3>
+                               <h3 className="text-lg font-medium text-gray-900">Form Settings</h3>
               </div>
 
               <div className="space-y-6">
+                
+                {/* Theme Customization */}
+                <div className="space-y-4">
+                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                    Theme Customization
+                  </h4>
+                  
+                  {/* Color Selection */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-3 block">Choose Color</label>
+                      <div className="grid grid-cols-6 gap-2 mb-3">
+                        {predefinedColors.map((color) => (
+                          <div key={color.value} className="relative group">
+                            <button
+                              onClick={() => {
+                                const newColor = color.value;
+                                setFormSettings(prev => {
+                                  const hexToRgb = (hex: string) => {
+                                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                                    return result ? {
+                                      r: parseInt(result[1], 16),
+                                      g: parseInt(result[2], 16),
+                                      b: parseInt(result[3], 16)
+                                    } : { r: 66, g: 133, b: 244 };
+                                  };
+                                  const rgb = hexToRgb(newColor);
+                                  
+                                  return {
+                                    ...prev, 
+                                    themeColor: newColor,
+                                    // Always auto-update background to light version of new color
+                                    themeBackground: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`
+                                  };
+                                });
+                              }}
+                              className={`w-12 h-12 rounded-full border-2 transition-all hover:scale-105 ${
+                                formSettings.themeColor === color.value
+                                  ? 'border-gray-800 ring-2 ring-gray-300'
+                                  : 'border-gray-300 hover:border-gray-400'
+                              }`}
+                              style={{ backgroundColor: color.value }}
+                              title={color.name}
+                            />
+                            
+                            {/* Hover Tooltip */}
+                            <div 
+                              className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10"
+                              style={{ backgroundColor: color.value }}
+                            >
+                              <div className="font-medium">{color.name}</div>
+                              <div className="text-gray-200">{color.value}</div>
+                              {/* Tooltip Arrow - Perfectly Centered */}
+                              <div 
+                                className="absolute top-full left-1/2 border-4 border-transparent"
+                                style={{ 
+                                  borderTopColor: color.value,
+                                  transform: 'translateX(-50%)',
+                                  marginLeft: '0px'
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {/* Custom Color Option */}
+                        <button
+                          onClick={() => setShowCustomColorInput(!showCustomColorInput)}
+                          className={`w-12 h-12 rounded-full border-2 border-dashed border-gray-400 transition-all hover:border-gray-500 flex items-center justify-center text-gray-500 hover:text-gray-600 ${
+                            showCustomColorInput ? 'bg-gray-100' : 'bg-white'
+                          }`}
+                          title="Custom Color"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {/* Custom Color Input */}
+                      {showCustomColorInput && (
+                        <div className="flex items-center space-x-3 mt-3 p-3 bg-gray-50 rounded-lg">
+                          <input
+                            type="color"
+                            value={formSettings.themeColor}
+                            onChange={(e) => {
+                              const newColor = e.target.value;
+                              setFormSettings(prev => {
+                                const hexToRgb = (hex: string) => {
+                                  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                                  return result ? {
+                                    r: parseInt(result[1], 16),
+                                    g: parseInt(result[2], 16),
+                                    b: parseInt(result[3], 16)
+                                  } : { r: 66, g: 133, b: 244 };
+                                };
+                                const rgb = hexToRgb(newColor);
+                                
+                                return {
+                                  ...prev,
+                                  themeColor: newColor,
+                                  themeBackground: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`
+                                };
+                              });
+                            }}
+                            className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                          />
+                          <input
+                            type="text"
+                            value={formSettings.themeColor}
+                            onChange={(e) => {
+                              const newColor = e.target.value;
+                              if (/^#[0-9A-F]{6}$/i.test(newColor)) {
+                                setFormSettings(prev => {
+                                  const hexToRgb = (hex: string) => {
+                                    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+                                    return result ? {
+                                      r: parseInt(result[1], 16),
+                                      g: parseInt(result[2], 16),
+                                      b: parseInt(result[3], 16)
+                                    } : { r: 66, g: 133, b: 244 };
+                                  };
+                                  const rgb = hexToRgb(newColor);
+                                  
+                                  return {
+                                    ...prev,
+                                    themeColor: newColor,
+                                    themeBackground: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.1)`
+                                  };
+                                });
+                              } else {
+                                // For incomplete hex codes, just update color without background
+                                setFormSettings(prev => ({ ...prev, themeColor: newColor }));
+                              }
+                            }}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                            placeholder="#000000"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Background Selection */}
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 mb-3 block">Choose Background</label>
+                      <div className="grid grid-cols-4 gap-3">
+                        {getBackgroundOptions(formSettings.themeColor).map((bg) => (
+                          <div key={bg.name} className="relative group">
+                            <button
+                              onClick={() => setFormSettings(prev => ({ ...prev, themeBackground: bg.value }))}
+                              className={`w-full p-4 rounded-lg border-2 transition-all hover:scale-105 relative ${
+                                formSettings.themeBackground === bg.value
+                                  ? 'border-gray-800 ring-2 ring-gray-300'
+                                  : 'border-gray-300 hover:border-gray-400'
+                              }`}
+                              style={{ backgroundColor: bg.preview }}
+                            >
+                              <div className="text-xs font-medium text-gray-700 text-center mb-2">
+                                {bg.name}
+                              </div>
+                              <div className="flex justify-center">
+                                <div 
+                                  className="w-8 h-8 rounded-full border-2 border-white shadow-sm" 
+                                  style={{ backgroundColor: formSettings.themeColor }}
+                                ></div>
+                              </div>
+                            </button>
+                            
+                            {/* Hover Tooltip */}
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                              <div className="font-medium">{bg.name}</div>
+                              <div className="text-gray-300">{bg.value}</div>
+                              {/* Tooltip Arrow */}
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 
                 {/* Question Settings */}
                 <div className="space-y-4">

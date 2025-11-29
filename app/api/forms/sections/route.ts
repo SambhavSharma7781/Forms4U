@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { formId, title = "Untitled Section", description = null } = data;
+    const { formId, title = "", description = "" } = data;
 
     // Verify user owns the form
     const form = await prisma.form.findFirst({

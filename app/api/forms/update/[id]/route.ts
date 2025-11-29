@@ -21,16 +21,11 @@ export async function PUT(
     const body = await request.json();
     const { title, description, questions, sections, published = false, acceptingResponses = true, settings } = body;
     
-    console.log('🔴 API UPDATE - Received data:', {
-      title,
-      sectionsCount: sections?.length || 0,
-      sections: sections?.map((s: any) => ({
-        id: s.id,
-        title: s.title,
-        description: s.description,
-        questionsCount: s.questions?.length || 0
-      })) || 'No sections',
-      legacyQuestionsCount: questions?.length || 0
+    console.log('🟦 API UPDATE - Form title/description payload:', {
+      formId,
+      title: title,
+      description: description,
+      sectionsCount: sections?.length || 0
     });
 
     // Verify form ownership
@@ -56,28 +51,52 @@ export async function PUT(
     // Update form in transaction
     await prisma.$transaction(async (tx) => {
       // Update form title, description, published status, accepting responses, and settings
-      await tx.form.update({
-        where: { id: formId },
-        data: {
-          title,
-          description,
-          published,
-          acceptingResponses,
-          // Update form settings if provided
-          ...(settings && {
-            shuffleQuestions: settings.shuffleQuestions || false,
-            collectEmail: settings.collectEmail || false,
-            allowMultipleResponses: settings.allowMultipleResponses ?? true,
-            showProgress: settings.showProgress ?? true,
-            confirmationMessage: settings.confirmationMessage || 'Your response has been recorded.',
-            defaultRequired: settings.defaultRequired || false,
-            isQuiz: settings.isQuiz || false,
-            showCorrectAnswers: settings.showCorrectAnswers ?? true,
-            releaseGrades: settings.releaseGrades ?? true,
-            allowResponseEditing: (settings.isQuiz ? false : (settings.allowResponseEditing || false)),
-            editTimeLimit: settings.editTimeLimit || '24h'
-          })
-        }
+      console.log('🟦 API UPDATE - Updating form with:', { title, description, published, acceptingResponses });
+      
+      // Add debug logs to verify database update
+      console.log('🔍 DEBUG - Updating database with title:', title);
+      console.log('🔍 DEBUG - Updating database with description:', description);
+
+      // Declare updatedForm outside the try block
+      let updatedForm = null;
+      try {
+        updatedForm = await tx.form.update({
+          where: { id: formId },
+          data: {
+            title,
+            description,
+            published,
+            acceptingResponses,
+            // Update form settings if provided
+            ...(settings && {
+              shuffleQuestions: settings.shuffleQuestions || false,
+              collectEmail: settings.collectEmail || false,
+              allowMultipleResponses: settings.allowMultipleResponses ?? true,
+              showProgress: settings.showProgress ?? true,
+              confirmationMessage: settings.confirmationMessage || 'Your response has been recorded.',
+              defaultRequired: settings.defaultRequired || false,
+              isQuiz: settings.isQuiz || false,
+              showCorrectAnswers: settings.showCorrectAnswers ?? true,
+              releaseGrades: settings.releaseGrades ?? true,
+              allowResponseEditing: (settings.isQuiz ? false : (settings.allowResponseEditing || false)),
+              editTimeLimit: settings.editTimeLimit || '24h'
+            })
+          }
+        });
+        
+        // Add a small delay after the update to ensure database consistency
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log('🔍 DEBUG - Updated form result:', updatedForm);
+      } catch (error) {
+        console.error('❌ ERROR - Failed to update form:', error);
+        throw error;
+      }
+      
+      console.log('🟦 API UPDATE - Form updated successfully:', {
+        id: updatedForm.id,
+        title: updatedForm.title,
+        description: updatedForm.description
       });
 
       if (!hasResponses) {
@@ -408,17 +427,27 @@ export async function PUT(
           }
         }
       }
+
+      // Add debug logs to confirm transaction success
+      console.log('🔍 DEBUG - Transaction completed successfully for formId:', formId);
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Form updated successfully'
+      message: 'Form updated successfully',
+      form: {
+        id: formId,
+        title,
+        description,
+        published,
+        acceptingResponses
+      }
     });
 
   } catch (error) {
-    console.error('Error updating form:', error);
+    console.error('🔴 API UPDATE - Transaction failed:', error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

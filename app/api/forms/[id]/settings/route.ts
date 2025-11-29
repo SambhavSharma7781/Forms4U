@@ -53,7 +53,10 @@ export async function PUT(
         releaseGrades: settingsData.releaseGrades,
         // Response editing settings (automatically disabled if quiz mode)
         allowResponseEditing: settingsData.isQuiz ? false : settingsData.allowResponseEditing,
-        editTimeLimit: settingsData.editTimeLimit
+        editTimeLimit: settingsData.editTimeLimit,
+        // Theme settings
+        themeColor: settingsData.themeColor,
+        themeBackground: settingsData.themeBackground
       }
     });
 
@@ -72,7 +75,10 @@ export async function PUT(
         releaseGrades: updatedForm.releaseGrades,
         // Response editing settings
         allowResponseEditing: updatedForm.allowResponseEditing,
-        editTimeLimit: updatedForm.editTimeLimit
+        editTimeLimit: updatedForm.editTimeLimit,
+        // Theme settings
+        themeColor: updatedForm.themeColor,
+        themeBackground: updatedForm.themeBackground
       }
     });
 

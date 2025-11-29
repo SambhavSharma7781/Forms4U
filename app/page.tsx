@@ -167,7 +167,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 min-h-0">
+    <div className="bg-white dark:bg-gray-900 min-h-screen">
       <div className="max-w-7xl mx-auto px-6 py-8">
         
         {/* Start a new form section */}

@@ -123,10 +123,10 @@ export default function Navbar() {
       if (formStatus.published === true) {
         return (
           <div className="flex items-center space-x-3">
-            <button 
+            <Button
               onClick={() => navbarEvents.emit('saveForm')}
-              className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               id="save-button-edit-published"
+              variant="outline"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -134,41 +134,41 @@ export default function Navbar() {
                 <path d="M7 3V8H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span id="save-text-edit-published">Save Changes</span>
-            </button>
-            <button 
+            </Button>
+            <Button
               onClick={() => {
                 const url = `${window.location.origin}/forms/${formStatus.formId}/view?preview=true`;
                 window.open(url, '_blank');
               }}
-              className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-1.5"
               style={{ display: 'none' }}
               id="preview-button-edit"
+              variant="outline"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Preview
-            </button>
-            <button 
+            </Button>
+            <Button
               onClick={() => navbarEvents.emit('unpublishForm')}
-              className="px-3 py-1.5 text-xs bg-red-50 text-red-700 rounded-md font-medium border border-red-200 hover:bg-red-100 transition-all duration-200 flex items-center gap-1.5"
+              className="bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 px-4 py-2 text-sm rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-1.5 transform hover:scale-105"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M3 6H5H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <path d="M8 6V4C8 3.46957 8.21071 2.96086 8.58579 2.58579C8.96086 2.21071 9.46957 2 10 2H14C14.5304 2 15.0391 2.21071 15.4142 2.58579C15.7893 2.96086 16 3.46957 16 4V6M19 6V20C19 20.5304 18.7893 21.0391 18.4142 21.4142C18.0391 21.7893 17.5304 22 17 22H7C6.46957 22 5.96086 21.7893 5.58579 21.4142C5.21071 21.0391 5 20.5304 5 20V6H19Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Unpublish
-            </button>
+            </Button>
           </div>
         );
       } else if (formStatus.published === false) {
         return (
           <div className="flex items-center space-x-3">
-            <button 
+            <Button
               onClick={() => navbarEvents.emit('saveForm')}
-              className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               id="save-button-edit-draft"
+              variant="outline"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3H16L21 8V19C21 20.1046 20.1046 21 19 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -176,26 +176,26 @@ export default function Navbar() {
                 <path d="M7 3V8H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               <span id="save-text-edit-draft">Save Draft</span>
-            </button>
-            <button 
+            </Button>
+            <Button
               onClick={() => {
                 const url = `${window.location.origin}/forms/${formStatus.formId}/view?preview=true`;
                 window.open(url, '_blank');
               }}
-              className="px-3 py-1.5 text-xs border border-gray-300 text-gray-600 rounded-md font-medium hover:bg-gray-50 transition-all duration-200 flex items-center gap-1.5"
               style={{ display: 'none' }}
               id="preview-button-edit"
+              variant="outline"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Preview
-            </button>
-            <button 
+            </Button>
+            <Button
               onClick={() => navbarEvents.emit('publishForm')}
-              className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium shadow-sm transition-all duration-200 hover:shadow-md flex items-center gap-1.5"
               title="Go Live"
+              className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 text-sm rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-1.5 transform hover:scale-105"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -203,7 +203,7 @@ export default function Navbar() {
                 <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
               Go Live
-            </button>
+            </Button>
           </div>
         );
       } else {
@@ -228,7 +228,7 @@ export default function Navbar() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <span className="text-xl font-bold text-gray-900 tracking-tight">NextForms</span>
+              <span className="text-xl font-bold text-gray-900 tracking-tight">Forms4U</span>
             </Link>
           </div>
 

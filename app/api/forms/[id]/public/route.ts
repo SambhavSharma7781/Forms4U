@@ -53,6 +53,9 @@ export async function GET(
         // Response editing settings (needed for response handling)
         allowResponseEditing: form.allowResponseEditing,
         editTimeLimit: form.editTimeLimit,
+        // Theme settings (needed for form styling)
+        themeColor: form.themeColor,
+        themeBackground: form.themeBackground,
         sections: form.sections.map(section => ({
           id: section.id,
           title: section.title,

@@ -49,6 +49,15 @@ export async function GET(
       description: s.description,
       questionsCount: s.questions?.length || 0
     })));
+    console.log('🔍 FETCHING FORM - Form title/description from DB:', {
+      id: form.id,
+      title: form.title,
+      description: form.description
+    });
+    console.log('🎨 FORM THEME FROM DB:', { 
+      themeColor: form.themeColor, 
+      themeBackground: form.themeBackground 
+    });
 
     return NextResponse.json({
       success: true,
@@ -68,6 +77,9 @@ export async function GET(
         isQuiz: form.isQuiz,
         showCorrectAnswers: form.showCorrectAnswers,
         releaseGrades: form.releaseGrades,
+        // Theme settings
+        themeColor: form.themeColor,
+        themeBackground: form.themeBackground,
         sections: form.sections.map(section => ({
           id: section.id,
           title: section.title,

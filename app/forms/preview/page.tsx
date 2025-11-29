@@ -249,8 +249,8 @@ export default function FormPreview() {
         {/* Preview Submit Button (Disabled) */}
         <div className="mt-8 flex justify-between items-center">
           <Button
-            variant="outline"
-            className="text-gray-600 border-gray-300"
+            variant="ghost"
+            className="font-medium transition-all duration-200 text-blue-600"
             disabled
           >
             Clear Form

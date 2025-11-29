@@ -49,6 +49,9 @@ interface FormData {
   isQuiz?: boolean;
   showCorrectAnswers?: boolean;
   releaseGrades?: boolean;
+  // Theme fields
+  themeColor?: string;
+  themeBackground?: string;
   sections: Section[];
 }
 
@@ -611,9 +614,12 @@ export default function PublicFormView() {
             type="text"
             value={response as string || ''}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
               hasError ? 'border-red-500' : 'border-gray-300'
             }`}
+            style={{
+              '--tw-ring-color': formData?.themeColor || '#4285F4'
+            } as React.CSSProperties}
             placeholder="Your answer"
           />
         );
@@ -623,9 +629,12 @@ export default function PublicFormView() {
           <textarea
             value={response as string || ''}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[100px] ${
+            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 resize-y min-h-[100px] ${
               hasError ? 'border-red-500' : 'border-gray-300'
             }`}
+            style={{
+              '--tw-ring-color': formData?.themeColor || '#4285F4'
+            } as React.CSSProperties}
             placeholder="Your answer"
           />
         );
@@ -653,7 +662,10 @@ export default function PublicFormView() {
                   value={option.text || `image-option-${option.id}`} // Use unique value for image-only options
                   checked={response === (option.text || `image-option-${option.id}`)}
                   onChange={(e) => handleInputChange(question.id, e.target.value)}
-                  className="w-4 h-4 text-blue-600 mt-1"
+                  className="w-4 h-4 mt-1"
+                  style={{
+                    accentColor: formData?.themeColor || '#4285F4'
+                  }}
                 />
                 <div className="flex-1">
                   {option.imageUrl && (
@@ -697,7 +709,10 @@ export default function PublicFormView() {
                         handleInputChange(question.id, currentResponses.filter(r => r !== optionValue));
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 mt-1"
+                    className="w-4 h-4 mt-1"
+                    style={{
+                      accentColor: formData?.themeColor || '#4285F4'
+                    }}
                   />
                   <div className="flex-1">
                     {option.imageUrl && (
@@ -727,9 +742,12 @@ export default function PublicFormView() {
             <select
               value={response as string || ''}
               onChange={(e) => handleInputChange(question.id, e.target.value)}
-              className={`w-full appearance-none p-3 pr-10 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer transition-all duration-200 hover:border-gray-400 ${
+              className={`w-full appearance-none p-3 pr-10 border rounded-md focus:outline-none focus:ring-2 bg-white cursor-pointer transition-all duration-200 hover:border-gray-400 ${
                 hasError ? 'border-red-500' : 'border-gray-300'
               }`}
+              style={{
+                '--tw-ring-color': formData?.themeColor || '#4285F4'
+              } as React.CSSProperties}
             >
               <option value="" disabled className="text-gray-500">Select an option</option>
               {question.options
@@ -985,7 +1003,15 @@ export default function PublicFormView() {
                       setCanEdit(false);
                       setEditExpiresAt(null);
                     }}
-                    className="text-blue-600 hover:text-blue-800 underline text-sm font-medium transition-colors cursor-pointer"
+                    className="underline text-sm font-medium transition-colors cursor-pointer"
+                  style={{ color: formData?.themeColor || '#4285F4' }}
+                  onMouseEnter={(e) => {
+                    const color = formData?.themeColor || '#4285F4';
+                    e.currentTarget.style.color = `${color}cc`; // Add opacity on hover
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = formData?.themeColor || '#4285F4';
+                  }}
                   >
                     Submit another response
                   </button>
@@ -1000,34 +1026,48 @@ export default function PublicFormView() {
 
   // Main form view
   return (
-    <div className="min-h-screen bg-blue-50">
+    <div 
+      className="min-h-screen" 
+      style={{ 
+        backgroundColor: formData?.themeBackground || '#f3f4f6',
+        overscrollBehavior: 'none'
+      }}
+    >
       <div className="max-w-2xl mx-auto py-8 px-4">
         {/* Preview Mode Header */}
         {isPreviewMode && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="border rounded-lg p-4 mb-6" style={{ 
+            backgroundColor: `${formData?.themeColor || '#4285F4'}15`, 
+            borderColor: `${formData?.themeColor || '#4285F4'}33`
+          }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: formData?.themeColor || '#4285F4' }}>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                <span className="text-blue-800 font-medium">Preview Mode</span>
+                <span className="font-medium" style={{ color: `${formData?.themeColor || '#4285F4'}dd` }}>Preview Mode</span>
               </div>
               <button 
                 onClick={() => window.close()} 
-                className="px-3 py-1 text-sm border border-blue-300 text-blue-700 hover:bg-blue-100 rounded-md"
+                className="px-3 py-1 text-sm border rounded-md hover:opacity-80 transition-opacity"
+                style={{
+                  borderColor: `${formData?.themeColor || '#4285F4'}66`,
+                  color: formData?.themeColor || '#4285F4',
+                  backgroundColor: `${formData?.themeColor || '#4285F4'}10`
+                }}
               >
                 Close Preview
               </button>
             </div>
-            <p className="text-blue-700 text-sm mt-2">This is how your form will appear to respondents. Form submission is disabled in preview mode.</p>
+            <p className="text-sm mt-2" style={{ color: `${formData?.themeColor || '#4285F4'}cc` }}>This is how your form will appear to respondents. Form submission is disabled in preview mode.</p>
           </div>
         )}
 
         {/* Not Accepting Responses Message */}
         {!formData.acceptingResponses && !isPreviewMode ? (
           <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
-            <div className="h-2 bg-blue-600"></div>
+            <div className="h-2" style={{ backgroundColor: formData.themeColor || '#4285F4' }}></div>
             <div className="p-6 text-center">
               <h1 className="text-2xl font-bold text-gray-800 mb-4">{formData.title}</h1>
               <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1058,8 +1098,8 @@ export default function PublicFormView() {
 
             {/* Form Header */}
             <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
-              {/* Blue top line */}
-              <div className="h-2 bg-blue-600"></div>
+              {/* Theme colored top line */}
+              <div className="h-2" style={{ backgroundColor: formData.themeColor || '#4285F4' }}></div>
               <div className="p-6">
                 <h1 
                   className="text-2xl font-bold text-gray-800 mb-2 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
@@ -1121,9 +1161,12 @@ export default function PublicFormView() {
                       }));
                     }
                   }}
-                  className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
                     errors['email'] ? 'border-red-500' : 'border-gray-300'
                   }`}
+                  style={{
+                    '--tw-ring-color': formData?.themeColor || '#4285F4'
+                  } as React.CSSProperties}
                   placeholder="your.email@example.com"
                 />
                 
@@ -1268,56 +1311,80 @@ export default function PublicFormView() {
             <div className="mt-8 flex justify-between items-center">
               {shouldUseSectionView() && formData.sections.length > 1 ? (
                 // 🆕 Section Navigation Buttons (Google Forms Style) - For Multi-Section Forms
-                <>
+                <div className="w-full flex flex-row justify-between items-center gap-2">
                   {/* Previous Button */}
                   <Button
                     onClick={goToPreviousSection}
                     disabled={isFirstSection}
-                    variant="outline"
-                    className={`${isFirstSection ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'} text-gray-600 border-gray-300`}
+                    className={`px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[120px] ${isFirstSection ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{
+                      color: formData?.themeColor || '#4285F4',
+                      background: '#fff',
+                      border: 'none',
+                    }}
                   >
                     ← Previous
                   </Button>
 
-                  {/* Clear Form Button (Middle) */}
+                  {/* Clear Form Button (Always Center) */}
                   <Button
                     onClick={isPreviewMode ? undefined : handleClearForm}
-                    variant="outline"
+                    variant="ghost"
                     disabled={isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                    className={`text-gray-600 border-gray-300 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    className={`px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{
+                      color: formData?.themeColor || '#4285F4',
+                      background: '#fff',
+                      border: 'none',
+                    }}
                   >
                     Clear Form
                   </Button>
 
-                  {/* Next/Submit Button */}
+                  {/* Next/Submit Button (Always Right, Same Width) */}
                   {isLastSection ? (
                     <Button
                       onClick={isPreviewMode ? undefined : handleSubmit}
                       disabled={submitting || isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        color: formData?.themeColor || '#4285F4',
+                        background: '#fff',
+                        border: 'none',
+                      }}
                     >
-                      {isPreviewMode ? 'Submit Form (Preview Only)' : 
-                       (!formData?.allowMultipleResponses && hasSubmittedBefore) ? 'Already Submitted' :
-                       (submitting ? 'Submitting...' : 'Submit Form')}
+                      {isPreviewMode ? 'Submit' : 
+                        (!formData?.allowMultipleResponses && hasSubmittedBefore) ? 'Already Submitted' :
+                        (submitting ? 'Submitting...' : 'Submit')}
                     </Button>
                   ) : (
                     <Button
                       onClick={goToNextSection}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                      className="px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[120px]"
+                      style={{
+                        color: formData?.themeColor || '#4285F4',
+                        background: '#fff',
+                        border: 'none',
+                      }}
                     >
                       Next →
                     </Button>
                   )}
-                </>
+                </div>
               ) : (
                 // 🔄 Standard Submit Buttons (For Single Section or Legacy Forms)
                 <>
                   {/* Clear Form Button */}
                   <Button
                     onClick={isPreviewMode ? undefined : handleClearForm}
-                    variant="outline"
+                    variant="ghost"
                     disabled={isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                    className={`text-gray-600 border-gray-300 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    className={`px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 ml-2 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    style={{
+                      color: formData?.themeColor || '#4285F4',
+                      background: '#fff',
+                      border: 'none',
+                    }}
                   >
                     Clear Form
                   </Button>
@@ -1327,8 +1394,11 @@ export default function PublicFormView() {
                     <div className="flex items-center space-x-3">
                       <div className="w-24 bg-gray-200 rounded-full h-2">
                         <div 
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${calculateProgress()}%` }}
+                          className="h-2 rounded-full transition-all duration-300 ease-out"
+                          style={{ 
+                            width: `${calculateProgress()}%`,
+                            backgroundColor: formData?.themeColor || '#4285F4'
+                          }}
                         ></div>
                       </div>
                       <span className="text-sm text-gray-600 font-medium">{calculateProgress()}%</span>
@@ -1339,24 +1409,20 @@ export default function PublicFormView() {
                   <Button
                     onClick={isPreviewMode ? undefined : handleSubmit}
                     disabled={submitting || isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-12 py-4 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      color: formData?.themeColor || '#4285F4',
+                      background: '#fff',
+                      border: 'none',
+                    }}
                   >
-                    {isPreviewMode ? 'Submit Form (Preview Only)' : 
+                    {isPreviewMode ? 'Submit' : 
                      (!formData?.allowMultipleResponses && hasSubmittedBefore) ? 'Already Submitted' :
                      (submitting ? 'Submitting...' : 'Submit')}
                   </Button>
                 </>
               )}
             </div>
-
-            {/* Preview Mode Message */}
-            {isPreviewMode && (
-              <div className="mt-4 text-center">
-                <p className="text-sm text-gray-500">
-                  Form submission is disabled in preview mode. Close this tab to return to editing.
-                </p>
-              </div>
-            )}
           </>
         )}
       </div>

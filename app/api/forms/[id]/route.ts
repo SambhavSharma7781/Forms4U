@@ -44,17 +44,17 @@ export async function GET(
       );
     }
 
-    console.log('🔍 FETCHING FORM - Sections from DB:', form.sections?.map((s: any) => ({
+    if (process.env.NODE_ENV === 'development') console.log('🔍 FETCHING FORM - Sections from DB:', form.sections?.map((s: any) => ({
       title: s.title,
       description: s.description,
       questionsCount: s.questions?.length || 0
     })));
-    console.log('🔍 FETCHING FORM - Form title/description from DB:', {
+    if (process.env.NODE_ENV === 'development') console.log('🔍 FETCHING FORM - Form title/description from DB:', {
       id: form.id,
       title: form.title,
       description: form.description
     });
-    console.log('🎨 FORM THEME FROM DB:', { 
+    if (process.env.NODE_ENV === 'development') console.log('🎨 FORM THEME FROM DB:', { 
       themeColor: form.themeColor, 
       themeBackground: form.themeBackground 
     });
@@ -136,7 +136,7 @@ export async function PUT(
     const data = await request.json();
     const { title, description, questions, published, settings } = data;
 
-    console.log('Updating form:', formId, 'with questions:', questions.length);
+    if (process.env.NODE_ENV === 'development') console.log('Updating form:', formId, 'with questions:', questions.length);
 
     // Verify form ownership
     const existingForm = await prisma.form.findFirst({
@@ -153,7 +153,7 @@ export async function PUT(
       );
     }
 
-    console.log('Form found, deleting existing data...');
+    if (process.env.NODE_ENV === 'development') console.log('Form found, deleting existing data...');
 
     // TODO: Fix these operations for sections-based structure
     // Delete existing answers first (to avoid constraint violation)
@@ -167,7 +167,7 @@ export async function PUT(
     //   }
     // });
 
-    console.log('Skipping answer deletion for now');
+    if (process.env.NODE_ENV === 'development') console.log('Skipping answer deletion for now');
 
     // Delete existing questions and their options  
     // await prisma.option.deleteMany({
@@ -180,7 +180,7 @@ export async function PUT(
     //   }
     // });
 
-    console.log('Skipping option deletion for now');
+    if (process.env.NODE_ENV === 'development') console.log('Skipping option deletion for now');
 
     // await prisma.question.deleteMany({
     //   where: {
@@ -190,7 +190,7 @@ export async function PUT(
     //   }
     // });
 
-    console.log('Skipping question deletion for now');
+    if (process.env.NODE_ENV === 'development') console.log('Skipping question deletion for now');
 
     // Delete existing sections
     await prisma.section.deleteMany({
@@ -199,7 +199,7 @@ export async function PUT(
       }
     });
 
-    console.log('Questions deleted, creating new ones...');
+    if (process.env.NODE_ENV === 'development') console.log('Questions deleted, creating new ones...');
 
     // Update form with new data
     const updatedForm = await prisma.form.update({

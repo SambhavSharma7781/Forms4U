@@ -110,15 +110,15 @@ export async function POST(
         // Single text answer or single choice
         answerText = answerData;
         selectedOptions = []; // Empty for single answers
-        console.log(`✅ String answer: "${answerText}"`);
+        if (process.env.NODE_ENV === 'development') console.log(`✅ String answer: "${answerText}"`);
       } else if (Array.isArray(answerData)) {
         // Multiple choice (checkboxes)
         selectedOptions = answerData.filter(item => item && item.trim() !== ''); // Filter out empty strings
         answerText = selectedOptions.join(', '); // Store as comma-separated text too
-        console.log(`✅ Array answer:`, selectedOptions);
-        console.log(`✅ Converted to text: "${answerText}"`);
+        if (process.env.NODE_ENV === 'development') console.log(`✅ Array answer:`, selectedOptions);
+        if (process.env.NODE_ENV === 'development') console.log(`✅ Converted to text: "${answerText}"`);
       } else {
-        console.log('❌ Unknown answer data type:', answerData);
+        if (process.env.NODE_ENV === 'development') console.log('❌ Unknown answer data type:', answerData);
       }
 
       // Add quiz result data if available
@@ -138,7 +138,7 @@ export async function POST(
         }
       });
 
-      console.log('✅ Created answer record:', {
+      if (process.env.NODE_ENV === 'development') console.log('✅ Created answer record:', {
         id: answerRecord.id,
         answerText: answerRecord.answerText,
         selectedOptions: answerRecord.selectedOptions,
@@ -150,7 +150,7 @@ export async function POST(
     // Execute all answer creation promises
     const createdAnswers = await Promise.all(answerPromises.filter(promise => promise !== null));
     
-    console.log('All answers created:', createdAnswers.length, 'answers');
+    if (process.env.NODE_ENV === 'development') console.log('All answers created:', createdAnswers.length, 'answers');
 
     // Prepare response with edit link if editing is enabled
     const responseData: any = {

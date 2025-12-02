@@ -255,8 +255,8 @@ export default function PublicFormView() {
   const calculateQuizScore = () => {
     if (!formData?.isQuiz || !shuffledQuestions.length) return null;
     
-    console.log('Calculating quiz score for questions:', shuffledQuestions);
-    console.log('User responses:', responses);
+    if (process.env.NODE_ENV === 'development') console.log('Calculating quiz score for questions:', shuffledQuestions);
+    if (process.env.NODE_ENV === 'development') console.log('User responses:', responses);
     
     let totalScore = 0;
     let maxScore = 0;
@@ -267,7 +267,7 @@ export default function PublicFormView() {
       const questionPoints = question.points || 1;
       maxScore += questionPoints;
       
-      console.log(`Question ${question.id}:`, {
+      if (process.env.NODE_ENV === 'development') console.log(`Question ${question.id}:`, {
         text: question.text,
         type: question.type,
         correctAnswers: question.correctAnswers,
@@ -282,7 +282,7 @@ export default function PublicFormView() {
         // Single correct answer
         isCorrect = question.correctAnswers?.includes(userResponse as string) || false;
         pointsEarned = isCorrect ? questionPoints : 0;
-        console.log(`Multiple choice result: isCorrect=${isCorrect}, pointsEarned=${pointsEarned}`);
+        if (process.env.NODE_ENV === 'development') console.log(`Multiple choice result: isCorrect=${isCorrect}, pointsEarned=${pointsEarned}`);
       } else if (question.type === 'CHECKBOXES') {
         // Multiple correct answers
         const userAnswers = userResponse as string[] || [];
@@ -298,7 +298,7 @@ export default function PublicFormView() {
         const result = calculateTextScore(userResponse as string, question.correctAnswers || [], questionPoints, question.type);
         isCorrect = result.percentage >= 100;
         pointsEarned = result.points;
-        console.log(`Text question result: ${result.percentage}% match, ${result.points}/${questionPoints} points`);
+        if (process.env.NODE_ENV === 'development') console.log(`Text question result: ${result.percentage}% match, ${result.points}/${questionPoints} points`);
       } else {
         // Other question types - no scoring yet
         isCorrect = false;
@@ -376,7 +376,7 @@ export default function PublicFormView() {
           updateProgress(1, data.form.sections.length);
         }
         
-        console.log('📋 Form loaded:', {
+        if (process.env.NODE_ENV === 'development') console.log('📋 Form loaded:', {
           isQuiz: data.form.isQuiz,
           showCorrectAnswers: data.form.showCorrectAnswers,
           releaseGrades: data.form.releaseGrades,
@@ -415,7 +415,7 @@ export default function PublicFormView() {
 
 
         const allQuestionsFlat = processedSections.flatMap((s: any) => s.questions || []);
-        console.log('🖼️ DEBUG: Form questions and options:', allQuestionsFlat.map((q: any) => ({
+        if (process.env.NODE_ENV === 'development') console.log('🖼️ DEBUG: Form questions and options:', allQuestionsFlat.map((q: any) => ({
           id: q.id,
           type: q.type,
           text: q.text?.substring(0, 50),
@@ -556,7 +556,7 @@ export default function PublicFormView() {
         })
       });
 
-      console.log('🔄 Submitting form data:', {
+      if (process.env.NODE_ENV === 'development') console.log('🔄 Submitting form data:', {
         responses,
         responseKeys: Object.keys(responses),
         responseValues: Object.values(responses),
@@ -656,7 +656,7 @@ export default function PublicFormView() {
         );
 
       case 'MULTIPLE_CHOICE':
-        console.log('🔍 MULTIPLE_CHOICE Debug:', {
+        if (process.env.NODE_ENV === 'development') console.log('🔍 MULTIPLE_CHOICE Debug:', {
           questionId: question.id,
           totalOptions: question.options.length,
           filteredOptions: question.options.filter((option) => option.text?.trim() || option.imageUrl).length,

@@ -21,7 +21,7 @@ export async function PUT(
     const body = await request.json();
     const { title, description, questions, sections, published = false, acceptingResponses = true, settings } = body;
     
-    console.log('🟦 API UPDATE - Request received:', {
+    if (process.env.NODE_ENV === 'development') console.log('🟦 API UPDATE - Request received:', {
       formId,
       title: title,
       description: description,
@@ -31,7 +31,7 @@ export async function PUT(
       acceptingResponses
     });
     
-    console.log('🟦 API UPDATE - Form title/description payload:', {
+    if (process.env.NODE_ENV === 'development') console.log('🟦 API UPDATE - Form title/description payload:', {
       formId,
       title: title,
       description: description,
@@ -61,11 +61,11 @@ export async function PUT(
     // Update form in transaction
     await prisma.$transaction(async (tx) => {
       // Update form title, description, published status, accepting responses, and settings
-      console.log('🟦 API UPDATE - Updating form with:', { title, description, published, acceptingResponses });
+      if (process.env.NODE_ENV === 'development') console.log('🟦 API UPDATE - Updating form with:', { title, description, published, acceptingResponses });
       
       // Add debug logs to verify database update
-      console.log('🔍 DEBUG - Updating database with title:', title);
-      console.log('🔍 DEBUG - Updating database with description:', description);
+      if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Updating database with title:', title);
+      if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Updating database with description:', description);
 
       // Declare updatedForm outside the try block
       let updatedForm = null;
@@ -99,13 +99,13 @@ export async function PUT(
         // Add a small delay after the update to ensure database consistency
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        console.log('🔍 DEBUG - Updated form result:', updatedForm);
+        if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Updated form result:', updatedForm);
       } catch (error) {
         console.error('❌ ERROR - Failed to update form:', error);
         throw error;
       }
       
-      console.log('🟦 API UPDATE - Form updated successfully:', {
+      if (process.env.NODE_ENV === 'development') console.log('🟦 API UPDATE - Form updated successfully:', {
         id: updatedForm.id,
         title: updatedForm.title,
         description: updatedForm.description
@@ -227,18 +227,18 @@ export async function PUT(
       } else {
         // If responses exist, we need to be more careful to preserve existing data
         // We can still update section titles and descriptions safely
-        console.log('Form has existing responses - preserving questions and answers, but updating section metadata');
+        if (process.env.NODE_ENV === 'development') console.log('Form has existing responses - preserving questions and answers, but updating section metadata');
         
         // Handle sections - update existing ones and create new ones
         if (sections && sections.length > 0) {
-          console.log('🔍 Processing sections - Total count:', sections.length);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Processing sections - Total count:', sections.length);
           
           // First, process all sections (update existing, create new)
           // This must happen BEFORE deleting sections, so moved questions don't get deleted
           for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
             const sectionData = sections[sectionIndex];
             
-            console.log('🔍 Processing section:', {
+            if (process.env.NODE_ENV === 'development') console.log('🔍 Processing section:', {
               index: sectionIndex,
               id: sectionData.id,
               title: sectionData.title,
@@ -247,7 +247,7 @@ export async function PUT(
             });
             
             if (sectionData.id && !sectionData.id.startsWith('temp_')) {
-              console.log('📝 Updating existing section:', sectionData.id);
+              if (process.env.NODE_ENV === 'development') console.log('📝 Updating existing section:', sectionData.id);
               // Update existing section
               await tx.section.update({
                 where: { id: sectionData.id },
@@ -328,7 +328,7 @@ export async function PUT(
               }
             } else {
               // Create new section (no ID or temporary ID)
-              console.log('✨ Creating new section:', sectionData.title);
+              if (process.env.NODE_ENV === 'development') console.log('✨ Creating new section:', sectionData.title);
               const createdSection = await tx.section.create({
                 data: {
                   title: sectionData.title || 'Untitled Section',
@@ -338,7 +338,7 @@ export async function PUT(
                 }
               });
               
-              console.log('✅ New section created with ID:', createdSection.id);
+              if (process.env.NODE_ENV === 'development') console.log('✅ New section created with ID:', createdSection.id);
 
               // Create questions for the new section
               if (sectionData.questions && sectionData.questions.length > 0) {
@@ -399,8 +399,8 @@ export async function PUT(
             }
           });
           
-          console.log('🔍 Questions in payload (real IDs):', Array.from(payloadQuestionIds));
-          console.log('🔍 New questions count:', newQuestionsCount);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Questions in payload (real IDs):', Array.from(payloadQuestionIds));
+          if (process.env.NODE_ENV === 'development') console.log('🔍 New questions count:', newQuestionsCount);
           
           // Get all existing questions in the form AFTER creates/updates
           const existingQuestions = await tx.question.findMany({
@@ -412,13 +412,13 @@ export async function PUT(
             select: { id: true }
           });
           
-          console.log('🔍 Total questions in DB after processing:', existingQuestions.length);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Total questions in DB after processing:', existingQuestions.length);
           
           // Expected question count = questions with real IDs + new questions just created
           const expectedQuestionCount = payloadQuestionIds.size + newQuestionsCount;
           const actualQuestionCount = existingQuestions.length;
           
-          console.log('🔍 Expected questions:', expectedQuestionCount, 'Actual in DB:', actualQuestionCount);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Expected questions:', expectedQuestionCount, 'Actual in DB:', actualQuestionCount);
           
           // Only delete questions if we have MORE than expected
           // Find questions to delete (exist in DB but not in payload, and only excess ones)
@@ -428,7 +428,7 @@ export async function PUT(
             .map(q => q.id);
           
           if (questionsToDelete.length > 0) {
-            console.log('🗑️ Deleting questions:', questionsToDelete);
+            if (process.env.NODE_ENV === 'development') console.log('🗑️ Deleting questions:', questionsToDelete);
             
             // Delete answers first
             await tx.answer.deleteMany({
@@ -451,7 +451,7 @@ export async function PUT(
               }
             });
             
-            console.log('✅ Successfully deleted questions');
+            if (process.env.NODE_ENV === 'development') console.log('✅ Successfully deleted questions');
           }
           
           // NOW delete sections that are not in the payload (after all updates are done)
@@ -462,7 +462,7 @@ export async function PUT(
             select: { id: true }
           });
           
-          console.log('🔍 Existing sections in DB after processing:', existingSections.map(s => s.id));
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Existing sections in DB after processing:', existingSections.map(s => s.id));
           
           // Get the section IDs from the payload (only real IDs, not temp ones or undefined)
           // Also, if there are NEW sections (undefined ID), we should NOT delete them
@@ -473,8 +473,8 @@ export async function PUT(
           // Count how many sections have undefined or temp IDs (these are new sections that were just created)
           const newSectionsCount = sections.filter((s: any) => !s.id || s.id.startsWith('temp_')).length;
           
-          console.log('🔍 Sections in payload (real IDs only):', payloadSectionIds);
-          console.log('🔍 New sections count (will have just been created):', newSectionsCount);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Sections in payload (real IDs only):', payloadSectionIds);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 New sections count (will have just been created):', newSectionsCount);
           
           // Only delete sections if:
           // 1. They exist in DB
@@ -483,7 +483,7 @@ export async function PUT(
           const expectedSectionCount = payloadSectionIds.length + newSectionsCount;
           const actualSectionCount = existingSections.length;
           
-          console.log('🔍 Expected sections:', expectedSectionCount, 'Actual in DB:', actualSectionCount);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Expected sections:', expectedSectionCount, 'Actual in DB:', actualSectionCount);
           
           // Only delete if we have MORE sections in DB than expected
           // (This means some old sections should be removed)
@@ -492,10 +492,10 @@ export async function PUT(
             .slice(0, Math.max(0, actualSectionCount - expectedSectionCount)) // Only delete excess sections
             .map(s => s.id);
           
-          console.log('🔍 Sections to delete:', sectionsToDelete);
+          if (process.env.NODE_ENV === 'development') console.log('🔍 Sections to delete:', sectionsToDelete);
           
           if (sectionsToDelete.length > 0) {
-            console.log('🗑️ Deleting sections:', sectionsToDelete);
+            if (process.env.NODE_ENV === 'development') console.log('🗑️ Deleting sections:', sectionsToDelete);
             
             try {
               // Delete answers first (for forms with responses)
@@ -536,7 +536,7 @@ export async function PUT(
                 }
               });
               
-              console.log('✅ Successfully deleted sections');
+              if (process.env.NODE_ENV === 'development') console.log('✅ Successfully deleted sections');
             } catch (deleteError) {
               console.error('❌ Error deleting sections:', deleteError);
               throw deleteError;
@@ -623,7 +623,7 @@ export async function PUT(
             }
           } else {
             // New question (temp ID) - create it
-            console.log('Creating new question for form with responses:', newQuestion.text);
+            if (process.env.NODE_ENV === 'development') console.log('Creating new question for form with responses:', newQuestion.text);
             
             // Get or create default section
             let defaultSection = await tx.section.findFirst({
@@ -675,7 +675,7 @@ export async function PUT(
           const questionsToDelete = existingQuestions.filter(q => !newQuestionIds.has(q.id));
         
           if (questionsToDelete.length > 0) {
-            console.log(`Deleting ${questionsToDelete.length} questions from form with responses`);
+            if (process.env.NODE_ENV === 'development') console.log(`Deleting ${questionsToDelete.length} questions from form with responses`);
             
             // Delete questions and their related data
             for (const questionToDelete of questionsToDelete) {
@@ -699,7 +699,7 @@ export async function PUT(
       }
 
       // Add debug logs to confirm transaction success
-      console.log('🔍 DEBUG - Transaction completed successfully for formId:', formId);
+      if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Transaction completed successfully for formId:', formId);
     });
 
     return NextResponse.json({

@@ -130,18 +130,18 @@ export default function CreateFormPage() {
     setSaving(true);
     setJustSaved(false);
     setTimeout(() => {
-      console.log("Current questions state before validation:", questions);
+      if (process.env.NODE_ENV === 'development') console.log("Current questions state before validation:", questions);
       const validQuestions = questions.filter(q => {
-        console.log("Checking question validity:", q.question);
+        if (process.env.NODE_ENV === 'development') console.log("Checking question validity:", q.question);
         const isValid = q.question.trim() !== "";
-        console.log("Is question valid?", isValid);
+        if (process.env.NODE_ENV === 'development') console.log("Is question valid?", isValid);
         return isValid;
       }).map(q => ({
         ...q,
         options: q.options?.filter(opt => opt.text.trim() !== '' || opt.imageUrl) || []
       }));
 
-      console.log("Filtered valid questions:", validQuestions);
+      if (process.env.NODE_ENV === 'development') console.log("Filtered valid questions:", validQuestions);
 
       if (validQuestions.length === 0) {
         // alert("Please add at least one question with text");
@@ -334,7 +334,7 @@ export default function CreateFormPage() {
             }
           : q
       );
-      console.log("Updated questions state:", updatedQuestions);
+      if (process.env.NODE_ENV === 'development') console.log("Updated questions state:", updatedQuestions);
       return updatedQuestions;
     });
   };

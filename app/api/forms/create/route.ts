@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const { title, description, questions, sections, published = false, settings } = data;
     
-    console.log('🟢 CREATE API - Received data:', {
+    if (process.env.NODE_ENV === 'development') console.log('🟢 CREATE API - Received data:', {
       title,
       sectionsCount: sections?.length || 0,
       sections: sections?.map((s: any) => ({

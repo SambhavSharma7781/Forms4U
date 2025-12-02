@@ -153,12 +153,12 @@ export default function Form() {
   const hasUnsavedChanges = () => {
     // For new forms (no original data), always allow saving if there's content
     if (!originalFormData) {
-      console.log('🔍 CHANGE DETECTION - No original form data, allowing save.');
+      if (process.env.NODE_ENV === 'development') console.log('🔍 CHANGE DETECTION - No original form data, allowing save.');
       return true; // Allow saving new forms
     }
 
     // Compare title and description
-    console.log('🔍 CHANGE DETECTION - Comparing title and description:', {
+    if (process.env.NODE_ENV === 'development') console.log('🔍 CHANGE DETECTION - Comparing title and description:', {
       currentTitle: formData.title,
       originalTitle: originalFormData.title,
       currentDescription: formData.description,
@@ -167,7 +167,7 @@ export default function Form() {
 
     if (formData.title !== originalFormData.title || 
         formData.description !== originalFormData.description) {
-      console.log('🔍 CHANGE DETECTION - Title or description changed.');
+      if (process.env.NODE_ENV === 'development') console.log('🔍 CHANGE DETECTION - Title or description changed.');
       return true;
     }
 
@@ -190,7 +190,7 @@ export default function Form() {
       const originalSection = originalSections[i];
       
       if (!originalSection) {
-        console.log('🔍 CHANGE DETECTION - New section detected');
+        if (process.env.NODE_ENV === 'development') console.log('🔍 CHANGE DETECTION - New section detected');
         return true; // New section
       }
       
@@ -200,7 +200,7 @@ export default function Form() {
       const currentDesc = currentSection.description || '';
       const originalDesc = originalSection.description || '';
       
-      console.log('🔍 CHANGE DETECTION - Comparing section:', {
+      if (process.env.NODE_ENV === 'development') console.log('🔍 CHANGE DETECTION - Comparing section:', {
         index: i,
         currentTitle,
         originalTitle,
@@ -211,7 +211,7 @@ export default function Form() {
       });
       
       if (currentTitle !== originalTitle || currentDesc !== originalDesc) {
-        console.log('🔍 CHANGE DETECTION - Section change detected!');
+        if (process.env.NODE_ENV === 'development') console.log('🔍 CHANGE DETECTION - Section change detected!');
         return true;
       }
     }
@@ -428,7 +428,7 @@ export default function Form() {
           // Only fetch on initial load, not on subsequent auth state changes
           // Check if we haven't already loaded the form data
           if (!formData.id) {
-            console.log('🔵 INITIAL LOAD - Fetching form data for the first time');
+            if (process.env.NODE_ENV === 'development') console.log('🔵 INITIAL LOAD - Fetching form data for the first time');
             fetchFormData();
             fetchResponseCount();
           }
@@ -652,7 +652,7 @@ export default function Form() {
   const fetchFormData = async (shouldUpdateOriginal = true) => {
     try {
       // Add debug logs to fetchFormData
-      console.log('🔍 DEBUG - Refetching form data for formId:', formId);
+      if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Refetching form data for formId:', formId);
       
       // Add cache-busting headers to fetchFormData
       const response = await fetch(`/api/forms/${formId}`, {
@@ -664,16 +664,16 @@ export default function Form() {
       const data = await response.json();
       
       if (data.success) {
-        console.log('🔍 FETCHED FORM DATA - Title from DB:', data.form.title);
-        console.log('🔍 FETCHED FORM DATA - Description from DB:', data.form.description);
-        console.log('🔍 FETCHED FORM DATA - Sections:', data.form.sections?.map((s: any) => ({
+        if (process.env.NODE_ENV === 'development') console.log('🔍 FETCHED FORM DATA - Title from DB:', data.form.title);
+        if (process.env.NODE_ENV === 'development') console.log('🔍 FETCHED FORM DATA - Description from DB:', data.form.description);
+        if (process.env.NODE_ENV === 'development') console.log('🔍 FETCHED FORM DATA - Sections:', data.form.sections?.map((s: any) => ({
           title: s.title,
           description: s.description,
           questionsCount: s.questions?.length || 0
         })));
         
         // Add debug logs to setFormData
-        console.log('🔍 DEBUG - Updating formData state with:', data.form);
+        if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Updating formData state with:', data.form);
         setFormData(data.form);
         
         // Only update originalFormData when initially loading the form, not after saves
@@ -700,7 +700,7 @@ export default function Form() {
           themeColor: data.form.themeColor || '#4285F4',
           themeBackground: data.form.themeBackground || 'rgba(66, 133, 244, 0.1)'
         };
-        console.log('🎨 LOADED THEME SETTINGS:', { 
+        if (process.env.NODE_ENV === 'development') console.log('🎨 LOADED THEME SETTINGS:', { 
           themeColor: loadedSettings.themeColor, 
           themeBackground: loadedSettings.themeBackground 
         });
@@ -765,7 +765,7 @@ export default function Form() {
 
   // Form editing functions
   const updateFormTitle = (title: string) => {
-    console.log('🔵 UPDATE FORM TITLE - Setting title to:', title);
+    if (process.env.NODE_ENV === 'development') console.log('🔵 UPDATE FORM TITLE - Setting title to:', title);
     setFormData(prevData => ({ ...prevData, title }));
   };
 
@@ -1014,12 +1014,12 @@ export default function Form() {
   };
 
   const saveForm = async (forcePublished?: boolean) => {
-    console.log('🔵 FRONTEND SAVE - Starting save with formData.title:', formData.title);
-    console.log('🔵 FRONTEND SAVE - Starting save with formData.description:', formData.description);
+    if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Starting save with formData.title:', formData.title);
+    if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Starting save with formData.description:', formData.description);
     
     // Prevent duplicate save calls
     if (saving) {
-      console.log('⚠️ Save already in progress, ignoring duplicate call');
+      if (process.env.NODE_ENV === 'development') console.log('⚠️ Save already in progress, ignoring duplicate call');
       return;
     }
     
@@ -1078,7 +1078,7 @@ export default function Form() {
         : (forcePublished !== undefined ? forcePublished : false);
       
       // Create payload with correct published status and proper data structure
-      console.log('🔵 FRONTEND SAVE - Current formData before payload:', {
+      if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Current formData before payload:', {
         title: formData.title,
         description: formData.description,
         sectionsCount: formData.sections?.length || 0
@@ -1139,13 +1139,13 @@ export default function Form() {
       };
       
       // Add debug logs to verify the payload
-      console.log('🔍 DEBUG - Payload title:', payload.title);
-      console.log('🔍 DEBUG - Payload description:', payload.description);
+      if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Payload title:', payload.title);
+      if (process.env.NODE_ENV === 'development') console.log('🔍 DEBUG - Payload description:', payload.description);
       
       const url = isExistingForm ? `/api/forms/update/${formId}` : '/api/forms/create';
       const method = isExistingForm ? 'PUT' : 'POST';
       
-      console.log('🔵 FRONTEND SAVE - Payload being sent:', {
+      if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Payload being sent:', {
         title: payload.title,
         description: payload.description,
         sectionsCount: payload.sections.length,
@@ -1161,9 +1161,9 @@ export default function Form() {
         body: JSON.stringify(payload),
       });
 
-      console.log('🔵 FRONTEND SAVE - Response status:', response.status);
+      if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Response status:', response.status);
       const data = await response.json();
-      console.log('🔵 FRONTEND SAVE - Response data:', data);
+      if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Response data:', data);
       
       if (!response.ok) {
         console.error('❌ API ERROR - Status:', response.status);
@@ -1174,15 +1174,15 @@ export default function Form() {
       
       if (data.success) {
         // After successful save, refetch the form data to get the latest state from database
-        console.log('🔵 FRONTEND SAVE - Success, refetching form data');
-        console.log('🔵 FRONTEND SAVE - Current formData before refetch:', {
+        if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Success, refetching form data');
+        if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Current formData before refetch:', {
           sectionsCount: formData.sections?.length,
           sections: formData.sections?.map((s: any) => ({ title: s.title, qCount: s.questions?.length }))
         });
         
         const fetchedData = await fetchFormData(false);
         
-        console.log('🔵 FRONTEND SAVE - Fetched data after save:', {
+        if (process.env.NODE_ENV === 'development') console.log('🔵 FRONTEND SAVE - Fetched data after save:', {
           sectionsCount: fetchedData?.formData?.sections?.length,
           sections: fetchedData?.formData?.sections?.map((s: any) => ({ title: s.title, qCount: s.questions?.length }))
         });
@@ -1259,7 +1259,7 @@ export default function Form() {
     setPublishing(true);
     try {
       const newPublishedStatus = !formData.published;
-      console.log('togglePublishStatus - Changing from:', formData.published, 'to:', newPublishedStatus);
+      if (process.env.NODE_ENV === 'development') console.log('togglePublishStatus - Changing from:', formData.published, 'to:', newPublishedStatus);
       
       const response = await fetch(`/api/forms/${formId}/publish`, {
         method: 'PATCH',
@@ -1270,10 +1270,10 @@ export default function Form() {
       });
 
       const data = await response.json();
-      console.log('togglePublishStatus - API response:', data);
+      if (process.env.NODE_ENV === 'development') console.log('togglePublishStatus - API response:', data);
       
       if (response.ok) {
-        console.log('togglePublishStatus - Updating form data to published:', newPublishedStatus);
+        if (process.env.NODE_ENV === 'development') console.log('togglePublishStatus - Updating form data to published:', newPublishedStatus);
         setFormData(prev => ({ ...prev, published: newPublishedStatus }));
         // Update navbar with new status
         navbarEvents.emit('formStatusUpdate', {
@@ -1283,7 +1283,7 @@ export default function Form() {
           title: formData.title
         });
         const message = newPublishedStatus ? 'Form published!' : 'Form unpublished (draft)';
-        console.log('togglePublishStatus - Alert message:', message, 'newPublishedStatus:', newPublishedStatus);
+        if (process.env.NODE_ENV === 'development') console.log('togglePublishStatus - Alert message:', message, 'newPublishedStatus:', newPublishedStatus);
       } else {
         console.error('togglePublishStatus - API error:', data);
         // Show the API error message to the user
@@ -1304,7 +1304,7 @@ export default function Form() {
     setPublishing(true);
     try {
       const newAcceptingStatus = !formData.acceptingResponses;
-      console.log('toggleResponseAcceptance - Changing from:', formData.acceptingResponses, 'to:', newAcceptingStatus);
+      if (process.env.NODE_ENV === 'development') console.log('toggleResponseAcceptance - Changing from:', formData.acceptingResponses, 'to:', newAcceptingStatus);
       
       const response = await fetch(`/api/forms/${formId}/toggle-responses`, {
         method: 'PATCH',
@@ -1315,10 +1315,10 @@ export default function Form() {
       });
 
       const data = await response.json();
-      console.log('toggleResponseAcceptance - API response:', data);
+      if (process.env.NODE_ENV === 'development') console.log('toggleResponseAcceptance - API response:', data);
       
       if (response.ok) {
-        console.log('toggleResponseAcceptance - Updating form data to acceptingResponses:', newAcceptingStatus);
+        if (process.env.NODE_ENV === 'development') console.log('toggleResponseAcceptance - Updating form data to acceptingResponses:', newAcceptingStatus);
         setFormData(prev => ({ ...prev, acceptingResponses: newAcceptingStatus }));
         // Update navbar with new status
         navbarEvents.emit('formStatusUpdate', {

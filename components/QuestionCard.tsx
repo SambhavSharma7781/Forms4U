@@ -425,8 +425,8 @@ export default function QuestionCard({
               value={question || ''}
               onChange={(value) => setQuestion(value)}
               placeholder="Untitled question"
-              className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded-md px-3 py-2 -mx-3 transition-colors"
-              style={{ minHeight: '40px', lineHeight: '1.4' }}
+              className="w-full text-lg font-medium text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded-md px-3 py-2.5 -mx-3 transition-colors"
+              style={{ minHeight: '40px', lineHeight: '1.5' }}
             />
             
             {/* Description input - Shows when user enables it from 3-dot menu */}
@@ -531,7 +531,7 @@ export default function QuestionCard({
                     />
                     
                     {/* Menu Content - Professional absolute positioning */}
-                    <div className={`absolute bg-white rounded-xl shadow-2xl border border-gray-200 max-h-80 overflow-y-auto w-72 transform transition-all duration-200 ease-out ${
+                    <div className={`absolute bg-white rounded-xl shadow-2xl border border-gray-200 max-h-96 overflow-y-auto w-72 transform transition-all duration-200 ease-out ${
                       menuPosition === 'top' 
                         ? 'bottom-full mb-2' 
                         : 'top-full mt-2'

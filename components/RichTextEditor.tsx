@@ -145,8 +145,8 @@ export default function RichTextEditor({
       {/* Placeholder */}
       {(!value || value === '<br>' || value.replace(/<[^>]*>/g, '').trim() === '') && (
         <div 
-          className="absolute top-0 left-0 pointer-events-none text-gray-500 select-none"
-          style={style}
+          className="absolute top-0 left-0 pointer-events-none text-gray-500 select-none flex items-center"
+          style={{...style, height: style?.minHeight || 'auto'}}
         >
           {placeholder}
         </div>

@@ -509,6 +509,22 @@ export default function PublicFormView() {
       return;
     }
 
+    // Check if user has provided any responses at all before validation
+    const hasAnyResponses = Object.keys(responses).length > 0 && 
+                           Object.values(responses).some(response => {
+                             if (typeof response === 'string') {
+                               return response.trim() !== '';
+                             } else if (Array.isArray(response)) {
+                               return response.length > 0;
+                             }
+                             return false;
+                           });
+
+    if (!hasAnyResponses) {
+      alert('Please answer at least one question before submitting.');
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -614,7 +630,7 @@ export default function PublicFormView() {
             type="text"
             value={response as string || ''}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+            className={`w-full px-2 sm:px-3 py-2 sm:py-3 border rounded-md focus:outline-none focus:ring-2 text-sm sm:text-base ${
               hasError ? 'border-red-500' : 'border-gray-300'
             }`}
             style={{
@@ -629,7 +645,7 @@ export default function PublicFormView() {
           <textarea
             value={response as string || ''}
             onChange={(e) => handleInputChange(question.id, e.target.value)}
-            className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 resize-y min-h-[100px] ${
+            className={`w-full px-2 sm:px-3 py-2 sm:py-3 border rounded-md focus:outline-none focus:ring-2 resize-y min-h-[100px] text-sm sm:text-base ${
               hasError ? 'border-red-500' : 'border-gray-300'
             }`}
             style={{
@@ -691,13 +707,13 @@ export default function PublicFormView() {
 
       case 'CHECKBOXES':
         return (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {question.options
               .filter((option) => option.text?.trim() || option.imageUrl) // Only show options with text or image
               .map((option) => {
                 const optionValue = option.text || `image-option-${option.id}`;
                 return (
-                <label key={option.id} className="flex items-start space-x-3 cursor-pointer p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors">
+                <label key={option.id} className="flex items-start gap-2 sm:gap-3 cursor-pointer p-2 sm:p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors min-h-[44px]">
                   <input
                     type="checkbox"
                     checked={(response as string[] || []).includes(optionValue)}
@@ -709,18 +725,18 @@ export default function PublicFormView() {
                         handleInputChange(question.id, currentResponses.filter(r => r !== optionValue));
                       }
                     }}
-                    className="w-4 h-4 mt-1"
+                    className="w-4 h-4 mt-0.5 sm:mt-1 flex-shrink-0"
                     style={{
                       accentColor: formData?.themeColor || '#4285F4'
                     }}
                   />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     {option.imageUrl && (
                       <div className={option.text?.trim() ? "mb-2" : ""}>
                         <img 
                           src={option.imageUrl} 
                           alt={option.text ? `Option image for ${option.text}` : "Option image"}
-                          className="w-full max-w-xs h-auto rounded-md border border-gray-200"
+                          className="w-full max-w-full h-auto rounded-md border border-gray-200"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
                           }}
@@ -728,7 +744,7 @@ export default function PublicFormView() {
                       </div>
                     )}
                     {option.text?.trim() && (
-                      <span className="text-gray-900">{option.text}</span>
+                      <span className="text-gray-900 text-sm sm:text-base break-words">{option.text}</span>
                     )}
                   </div>
                 </label>
@@ -742,7 +758,7 @@ export default function PublicFormView() {
             <select
               value={response as string || ''}
               onChange={(e) => handleInputChange(question.id, e.target.value)}
-              className={`w-full appearance-none p-3 pr-10 border rounded-md focus:outline-none focus:ring-2 bg-white cursor-pointer transition-all duration-200 hover:border-gray-400 ${
+              className={`w-full appearance-none px-2 sm:px-3 py-2 sm:py-3 pr-8 sm:pr-10 border rounded-md focus:outline-none focus:ring-2 bg-white cursor-pointer transition-all duration-200 hover:border-gray-400 text-sm sm:text-base ${
                 hasError ? 'border-red-500' : 'border-gray-300'
               }`}
               style={{
@@ -786,16 +802,16 @@ export default function PublicFormView() {
   // Form not found or not published
   if (notFound || !formData) {
     return (
-      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
-        <div className="max-w-md mx-auto text-center bg-white p-8 rounded-lg shadow-sm border border-gray-200">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center px-4">
+        <div className="max-w-md mx-auto text-center bg-white p-4 sm:p-6 lg:p-8 rounded-lg shadow-sm border border-gray-200">
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Form Not Available</h1>
-          <p className="text-gray-600 mb-4">This form is not published or doesn't exist.</p>
-          <p className="text-sm text-gray-500">Please check the URL or contact the form owner.</p>
+          <h1 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 break-words">Form Not Available</h1>
+          <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4 break-words">This form is not published or doesn't exist.</p>
+          <p className="text-xs sm:text-sm text-gray-500 break-words">Please check the URL or contact the form owner.</p>
         </div>
       </div>
     );
@@ -804,10 +820,10 @@ export default function PublicFormView() {
   // Form not found
   if (!formData) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Form Not Found</h2>
-          <p className="text-gray-600">The form you're looking for doesn't exist or has been removed.</p>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 break-words">Form Not Found</h2>
+          <p className="text-sm sm:text-base text-gray-600 break-words">The form you're looking for doesn't exist or has been removed.</p>
         </div>
       </div>
     );
@@ -816,26 +832,31 @@ export default function PublicFormView() {
   // Success state
   if (submitted) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <div className="max-w-2xl mx-auto pt-4 px-4">
-          <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
-            <div className="h-2 bg-blue-600"></div>
-            <div className="p-8">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">{formData?.title}</h1>
-              <p className="text-gray-600 text-base mb-6">{confirmationMessage}</p>
+      <div 
+        className="min-h-screen" 
+        style={{ 
+          backgroundColor: formData?.themeBackground || 'rgba(66, 133, 244, 0.1)'
+        }}
+      >
+        <div className="max-w-2xl mx-auto pt-2 sm:pt-4 px-4 sm:px-6">
+          <div className="bg-white rounded-lg shadow-sm mb-4 sm:mb-6 overflow-hidden">
+            <div className="h-2" style={{ backgroundColor: formData?.themeColor || '#4285F4' }}></div>
+            <div className="p-4 sm:p-6 lg:p-8">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4 break-words">{formData?.title}</h1>
+              <p className="text-gray-600 text-sm sm:text-base mb-4 sm:mb-6 break-words">{confirmationMessage}</p>
               
               {/* Quiz notification when grades are not released immediately */}
               {formData?.isQuiz && !formData.releaseGrades && (
-                <div className="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="flex items-center space-x-3">
+                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     <div className="text-yellow-600">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-sm font-medium text-yellow-800">Quiz Submitted Successfully</h3>
-                      <p className="text-sm text-yellow-700 mt-1">Your quiz has been graded and results will be shared later.</p>
+                      <h3 className="text-xs sm:text-sm font-medium text-yellow-800">Quiz Submitted Successfully</h3>
+                      <p className="text-xs sm:text-sm text-yellow-700 mt-1">Your quiz has been graded and results will be shared later.</p>
                     </div>
                   </div>
                 </div>
@@ -843,16 +864,16 @@ export default function PublicFormView() {
               
               {/* Quiz Results - Only show if quiz mode AND release grades is enabled */}
               {formData?.isQuiz && quizResults && formData.releaseGrades && (
-                <div className="mb-6 p-6 bg-blue-50 rounded-lg border border-blue-200">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">Quiz Results</h2>
+                <div className="mb-4 sm:mb-6 p-4 sm:p-6 bg-blue-50 rounded-lg border border-blue-200">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">Quiz Results</h2>
                   
                   {/* Score Display */}
-                  <div className="mb-6 p-4 bg-white rounded-lg border">
+                  <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-white rounded-lg border">
                     <div className="text-center">
-                      <div className="text-4xl font-bold text-blue-600 mb-2">
+                      <div className="text-3xl sm:text-4xl font-bold text-blue-600 mb-2">
                         {quizResults.totalScore}/{quizResults.maxScore}
                       </div>
-                      <div className="text-lg font-medium text-gray-700 mb-1">
+                      <div className="text-base sm:text-lg font-medium text-gray-700 mb-1">
                         {quizResults.percentage}%
                       </div>
                       <div className="text-sm text-gray-600">
@@ -869,18 +890,18 @@ export default function PublicFormView() {
                   
                   {/* Question Results - Only if showCorrectAnswers is ALSO enabled */}
                   {formData.showCorrectAnswers && (
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-gray-800">Answer Review</h3>
+                    <div className="space-y-3 sm:space-y-4">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-800">Answer Review</h3>
                       {shuffledQuestions.map((question) => {
                         const result = quizResults.results[question.id];
                         const userResponse = responses[question.id];
                         
                         return (
-                          <div key={question.id} className="p-4 bg-white rounded-lg border">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1">
+                          <div key={question.id} className="p-3 sm:p-4 bg-white rounded-lg border">
+                            <div className="flex items-start justify-between mb-2 gap-2">
+                              <div className="flex-1 min-w-0">
                                 <h4 
-                                  className="font-medium text-gray-900 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                                  className="font-medium text-gray-900 text-sm sm:text-base break-words [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
                                   dangerouslySetInnerHTML={{ __html: question.text }}
                                   onClick={(e) => {
                                     const target = e.target as HTMLElement;
@@ -897,23 +918,23 @@ export default function PublicFormView() {
                                     <img 
                                       src={question.imageUrl} 
                                       alt="Question image" 
-                                      className="max-w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+                                      className="max-w-full w-full h-auto rounded-lg border border-gray-200 shadow-sm"
                                       style={{ maxHeight: '300px' }}
                                     />
                                   </div>
                                 )}
                               </div>
                               
-                              <div className="flex items-center space-x-2 ml-4">
-                                <span className="text-sm text-gray-600">
+                              <div className="flex items-center gap-1.5 sm:gap-2 ml-2 sm:ml-4 flex-shrink-0">
+                                <span className="text-xs sm:text-sm text-gray-600">
                                   {result.pointsEarned}/{question.points || 1} pts
                                 </span>
                                 {result.pointsEarned === 0 ? (
-                                  <span className="text-red-600 text-sm font-medium">✗ Incorrect</span>
+                                  <span className="text-red-600 text-xs sm:text-sm font-medium">✗ Incorrect</span>
                                 ) : result.isCorrect ? (
-                                  <span className="text-green-600 text-sm font-medium">✓ Correct</span>
+                                  <span className="text-green-600 text-xs sm:text-sm font-medium">✓ Correct</span>
                                 ) : (
-                                  <span className="text-orange-600 text-sm font-medium">◐ Partially Correct</span>
+                                  <span className="text-orange-600 text-xs sm:text-sm font-medium">◐ Partially Correct</span>
                                 )}
                               </div>
                             </div>
@@ -957,16 +978,16 @@ export default function PublicFormView() {
               
               {/* Edit response link - Only show if editing is enabled and not a quiz */}
               {canEdit && editLink && !formData?.isQuiz && (
-                <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="flex items-start space-x-3">
+                <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start gap-2 sm:gap-3">
                     <div className="text-green-600 mt-0.5">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="text-green-800 font-medium text-sm">Response Submitted Successfully</h3>
-                      <p className="text-green-700 text-sm mt-1">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-green-800 font-medium text-xs sm:text-sm">Response Submitted Successfully</h3>
+                      <p className="text-green-700 text-xs sm:text-sm mt-1 break-words">
                         You can edit your response if needed.
                         {editExpiresAt && (
                           <span className="block mt-1 text-xs">
@@ -976,7 +997,7 @@ export default function PublicFormView() {
                       </p>
                       <a
                         href={editLink}
-                        className="inline-flex items-center space-x-2 mt-2 px-3 py-2 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
+                        className="inline-flex items-center gap-1.5 sm:gap-2 mt-2 px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 text-white text-xs sm:text-sm font-medium rounded-md hover:bg-green-700 transition-colors"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -990,7 +1011,7 @@ export default function PublicFormView() {
 
               {/* Submit another response link - Google Forms style */}
               {formData?.allowMultipleResponses && (
-                <div className="mt-4">
+                <div className="mt-3 sm:mt-4">
                   <button
                     onClick={() => {
                       setSubmitted(false);
@@ -1003,7 +1024,7 @@ export default function PublicFormView() {
                       setCanEdit(false);
                       setEditExpiresAt(null);
                     }}
-                    className="underline text-sm font-medium transition-colors cursor-pointer"
+                    className="underline text-xs sm:text-sm font-medium transition-colors cursor-pointer"
                   style={{ color: formData?.themeColor || '#4285F4' }}
                   onMouseEnter={(e) => {
                     const color = formData?.themeColor || '#4285F4';
@@ -1033,24 +1054,24 @@ export default function PublicFormView() {
         overscrollBehavior: 'none'
       }}
     >
-      <div className="max-w-2xl mx-auto py-8 px-4">
+      <div className="max-w-2xl mx-auto py-4 sm:py-6 lg:py-8 px-4 sm:px-6">
         {/* Preview Mode Header */}
         {isPreviewMode && (
-          <div className="border rounded-lg p-4 mb-6" style={{ 
+          <div className="border rounded-lg p-3 sm:p-4 mb-4 sm:mb-6" style={{ 
             backgroundColor: `${formData?.themeColor || '#4285F4'}15`, 
             borderColor: `${formData?.themeColor || '#4285F4'}33`
           }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: formData?.themeColor || '#4285F4' }}>
+            <div className="flex items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0">
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: formData?.themeColor || '#4285F4' }}>
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                 </svg>
-                <span className="font-medium" style={{ color: `${formData?.themeColor || '#4285F4'}dd` }}>Preview Mode</span>
+                <span className="font-medium text-xs sm:text-sm" style={{ color: `${formData?.themeColor || '#4285F4'}dd` }}>Preview Mode</span>
               </div>
               <button 
                 onClick={() => window.close()} 
-                className="px-3 py-1 text-sm border rounded-md hover:opacity-80 transition-opacity"
+                className="px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded-md hover:opacity-80 transition-opacity flex-shrink-0"
                 style={{
                   borderColor: `${formData?.themeColor || '#4285F4'}66`,
                   color: formData?.themeColor || '#4285F4',
@@ -1060,49 +1081,49 @@ export default function PublicFormView() {
                 Close Preview
               </button>
             </div>
-            <p className="text-sm mt-2" style={{ color: `${formData?.themeColor || '#4285F4'}cc` }}>This is how your form will appear to respondents. Form submission is disabled in preview mode.</p>
+            <p className="text-xs sm:text-sm mt-2 break-words" style={{ color: `${formData?.themeColor || '#4285F4'}cc` }}>This is how your form will appear to respondents. Form submission is disabled in preview mode.</p>
           </div>
         )}
 
         {/* Not Accepting Responses Message */}
         {!formData.acceptingResponses && !isPreviewMode ? (
-          <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm mb-4 sm:mb-6 overflow-hidden">
             <div className="h-2" style={{ backgroundColor: formData.themeColor || '#4285F4' }}></div>
-            <div className="p-6 text-center">
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">{formData.title}</h1>
+            <div className="p-4 sm:p-6 text-center">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800 mb-3 sm:mb-4 break-words">{formData.title}</h1>
               <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
                 <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold text-gray-800 mb-2">This form is no longer accepting responses</h2>
-              <p className="text-gray-600">Try contacting the owner of the form if you think this is a mistake.</p>
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2 break-words">This form is no longer accepting responses</h2>
+              <p className="text-sm sm:text-base text-gray-600 break-words">Try contacting the owner of the form if you think this is a mistake.</p>
             </div>
           </div>
         ) : (
           <>
             {/* Multiple Response Warning */}
             {!formData.allowMultipleResponses && hasSubmittedBefore && !isPreviewMode && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center space-x-2">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+                <div className="flex items-center gap-2">
                   <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
-                  <span className="text-yellow-800 font-medium">Already Submitted</span>
+                  <span className="text-yellow-800 font-medium text-xs sm:text-sm">Already Submitted</span>
                 </div>
-                <p className="text-yellow-700 text-sm mt-2">
+                <p className="text-yellow-700 text-xs sm:text-sm mt-2 break-words">
                   You have already submitted a response to this form. Multiple responses are not allowed.
                 </p>
               </div>
             )}
 
             {/* Form Header */}
-            <div className="bg-white rounded-lg shadow-sm mb-6 overflow-hidden">
+            <div className="bg-white rounded-lg shadow-sm mb-4 sm:mb-6 overflow-hidden">
               {/* Theme colored top line */}
               <div className="h-2" style={{ backgroundColor: formData.themeColor || '#4285F4' }}></div>
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 <h1 
-                  className="text-2xl font-bold text-gray-800 mb-2 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                  className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 break-words [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
                   dangerouslySetInnerHTML={{ __html: formData.title || 'Untitled Form' }}
                   onClick={(e) => {
                     const target = e.target as HTMLElement;
@@ -1114,7 +1135,7 @@ export default function PublicFormView() {
                 />
                 {formData.description && (
                   <div 
-                    className="text-gray-600 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                    className="text-sm sm:text-base text-gray-600 break-words [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
                     dangerouslySetInnerHTML={{ __html: formData.description }}
                     onClick={(e) => {
                       const target = e.target as HTMLElement;
@@ -1130,9 +1151,9 @@ export default function PublicFormView() {
 
             {/* 🆕 Section Progress Indicator (Only show for multi-section forms) */}
             {shouldUseSectionView() && formData.sections.length > 1 && (
-              <div className="bg-white rounded-lg shadow-sm mb-4 p-4">
+              <div className="bg-white rounded-lg shadow-sm mb-3 sm:mb-4 p-3 sm:p-4">
                 <div className="flex items-center justify-center">
-                  <span className="text-sm text-gray-600 font-medium">
+                  <span className="text-xs sm:text-sm text-gray-600 font-medium">
                     Section {currentSectionIndex + 1} of {formData.sections.length}
                   </span>
                 </div>
@@ -1141,9 +1162,9 @@ export default function PublicFormView() {
 
             {/* Email Field */}
             {formData?.collectEmail && (
-              <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-medium text-gray-800 mb-1">
+              <div className="bg-white rounded-lg shadow-sm mb-4 sm:mb-6 p-4 sm:p-6">
+                <div className="mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-1">
                     Email address <span className="text-red-500">*</span>
                   </h3>
                 </div>
@@ -1161,7 +1182,7 @@ export default function PublicFormView() {
                       }));
                     }
                   }}
-                  className={`w-full p-3 border rounded-md focus:outline-none focus:ring-2 ${
+                  className={`w-full px-2 sm:px-3 py-2 sm:py-3 border rounded-md focus:outline-none focus:ring-2 text-sm sm:text-base ${
                     errors['email'] ? 'border-red-500' : 'border-gray-300'
                   }`}
                   style={{
@@ -1182,15 +1203,15 @@ export default function PublicFormView() {
               // 🆕 Section-Based Rendering (Google Forms Style)
               <>
                 {getCurrentSection() && (
-                  <div className="bg-white rounded-lg shadow-sm mb-6 p-6">
+                  <div className="bg-white rounded-lg shadow-sm mb-4 sm:mb-6 p-4 sm:p-6">
                     {/* Section Header - Only show when multiple sections exist OR custom title/description */}
                     {(formData.sections.length > 1 && (getCurrentSection()!.title !== 'Section 1' || getCurrentSection()!.description)) && (
-                      <div className="mb-6 border-b border-gray-200 pb-4">
-                        <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                      <div className="mb-4 sm:mb-6 border-b border-gray-200 pb-3 sm:pb-4">
+                        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2 break-words">
                           {getCurrentSection()!.title}
                         </h2>
                         {getCurrentSection()!.description && (
-                          <p className="text-gray-600">
+                          <p className="text-sm sm:text-base text-gray-600 break-words">
                             {getCurrentSection()!.description}
                           </p>
                         )}
@@ -1198,7 +1219,7 @@ export default function PublicFormView() {
                     )}
 
                     {/* Section Questions */}
-                    <div className="space-y-6">
+                    <div className="space-y-4 sm:space-y-6">
                       {getCurrentSection()!.questions.map((question, index) => {
                         // Find the question index across all sections for proper numbering
                         const allQuestions = getAllQuestionsFromSections(formData.sections);
@@ -1206,8 +1227,8 @@ export default function PublicFormView() {
                         
                         return (
                           <div key={question.id}>
-                            <div className="mb-4">
-                              <h3 className="text-lg font-medium text-gray-800 mb-1">
+                            <div className="mb-3 sm:mb-4">
+                              <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-1 break-words">
                                 {globalIndex + 1}. <span 
                                   className="[&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
                                   dangerouslySetInnerHTML={{ __html: question.text }}
@@ -1224,16 +1245,16 @@ export default function PublicFormView() {
                               
                               {/* Question Description */}
                               {question.description && (
-                                <p className="text-sm text-gray-600 mt-2 mb-3">{question.description}</p>
+                                <p className="text-xs sm:text-sm text-gray-600 mt-1.5 sm:mt-2 mb-2 sm:mb-3 break-words">{question.description}</p>
                               )}
                               
                               {/* Question Image */}
                               {question.imageUrl && (
-                                <div className="mt-3 mb-4">
+                                <div className="mt-2 sm:mt-3 mb-3 sm:mb-4">
                                   <img 
                                     src={question.imageUrl} 
                                     alt="Question image" 
-                                    className="max-w-md h-auto rounded-lg border border-gray-200"
+                                    className="max-w-full w-full h-auto rounded-lg border border-gray-200"
                                     onError={(e) => {
                                       e.currentTarget.style.display = 'none';
                                     }}
@@ -1257,11 +1278,11 @@ export default function PublicFormView() {
               </>
             ) : (
               // 🔄 Original Rendering (Fallback for Single Section or Legacy Forms)
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {shuffledQuestions.map((question, index) => (
-                  <div key={question.id} className="bg-white rounded-lg shadow-sm p-6">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-medium text-gray-800 mb-1">
+                  <div key={question.id} className="bg-white rounded-lg shadow-sm p-4 sm:p-6">
+                    <div className="mb-3 sm:mb-4">
+                      <h3 className="text-base sm:text-lg font-medium text-gray-800 mb-1 break-words">
                         {index + 1}. <span 
                           className="[&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
                           dangerouslySetInnerHTML={{ __html: question.text }}
@@ -1278,16 +1299,16 @@ export default function PublicFormView() {
                       
                       {/* Display Question Description */}
                       {question.description && (
-                        <p className="text-sm text-gray-600 mt-2 mb-3">{question.description}</p>
+                        <p className="text-xs sm:text-sm text-gray-600 mt-1.5 sm:mt-2 mb-2 sm:mb-3 break-words">{question.description}</p>
                       )}
                       
                       {/* Display Question Image */}
                       {question.imageUrl && (
-                        <div className="mt-3 mb-4">
+                        <div className="mt-2 sm:mt-3 mb-3 sm:mb-4">
                           <img 
                             src={question.imageUrl} 
                             alt="Question image" 
-                            className="max-w-md h-auto rounded-lg border border-gray-200"
+                            className="max-w-full w-full h-auto rounded-lg border border-gray-200"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none';
                             }}
@@ -1308,15 +1329,15 @@ export default function PublicFormView() {
             )}
 
             {/* Action Buttons with Integrated Progress */}
-            <div className="mt-8 flex justify-between items-center">
+            <div className="mt-6 sm:mt-8 flex justify-between items-center">
               {shouldUseSectionView() && formData.sections.length > 1 ? (
                 // 🆕 Section Navigation Buttons (Google Forms Style) - For Multi-Section Forms
-                <div className="w-full flex flex-row justify-between items-center gap-2">
+                <div className="w-full flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 sm:gap-2">
                   {/* Previous Button */}
                   <Button
                     onClick={goToPreviousSection}
                     disabled={isFirstSection}
-                    className={`px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[120px] ${isFirstSection ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`px-3 sm:px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[100px] sm:min-w-[120px] ${isFirstSection ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{
                       color: formData?.themeColor || '#4285F4',
                       background: '#fff',
@@ -1331,7 +1352,7 @@ export default function PublicFormView() {
                     onClick={isPreviewMode ? undefined : handleClearForm}
                     variant="ghost"
                     disabled={isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                    className={`px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`px-3 sm:px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 order-3 sm:order-2 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{
                       color: formData?.themeColor || '#4285F4',
                       background: '#fff',
@@ -1346,7 +1367,7 @@ export default function PublicFormView() {
                     <Button
                       onClick={isPreviewMode ? undefined : handleSubmit}
                       disabled={submitting || isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                      className="px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 sm:px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[100px] sm:min-w-[120px] disabled:opacity-50 disabled:cursor-not-allowed order-2 sm:order-3"
                       style={{
                         color: formData?.themeColor || '#4285F4',
                         background: '#fff',
@@ -1360,7 +1381,7 @@ export default function PublicFormView() {
                   ) : (
                     <Button
                       onClick={goToNextSection}
-                      className="px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[120px]"
+                      className="px-3 sm:px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 min-w-[100px] sm:min-w-[120px] order-2 sm:order-3"
                       style={{
                         color: formData?.themeColor || '#4285F4',
                         background: '#fff',
@@ -1379,7 +1400,7 @@ export default function PublicFormView() {
                     onClick={isPreviewMode ? undefined : handleClearForm}
                     variant="ghost"
                     disabled={isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                    className={`px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 ml-2 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    className={`px-3 sm:px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 ml-0 sm:ml-2 ${(isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)) ? 'opacity-50 cursor-not-allowed' : ''}`}
                     style={{
                       color: formData?.themeColor || '#4285F4',
                       background: '#fff',
@@ -1391,8 +1412,8 @@ export default function PublicFormView() {
                   
                   {/* Progress Bar in Center */}
                   {formData?.showProgress && (
-                    <div className="flex items-center space-x-3">
-                      <div className="w-24 bg-gray-200 rounded-full h-2">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="w-16 sm:w-24 bg-gray-200 rounded-full h-2">
                         <div 
                           className="h-2 rounded-full transition-all duration-300 ease-out"
                           style={{ 
@@ -1401,7 +1422,7 @@ export default function PublicFormView() {
                           }}
                         ></div>
                       </div>
-                      <span className="text-sm text-gray-600 font-medium">{calculateProgress()}%</span>
+                      <span className="text-xs sm:text-sm text-gray-600 font-medium">{calculateProgress()}%</span>
                     </div>
                   )}
                   
@@ -1409,7 +1430,7 @@ export default function PublicFormView() {
                   <Button
                     onClick={isPreviewMode ? undefined : handleSubmit}
                     disabled={submitting || isPreviewMode || (!formData?.allowMultipleResponses && hasSubmittedBefore)}
-                    className="px-5 py-2 text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 sm:px-5 py-2 text-xs sm:text-sm font-semibold rounded-lg bg-white shadow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{
                       color: formData?.themeColor || '#4285F4',
                       background: '#fff',

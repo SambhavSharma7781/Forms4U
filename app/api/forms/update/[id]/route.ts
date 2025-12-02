@@ -21,6 +21,16 @@ export async function PUT(
     const body = await request.json();
     const { title, description, questions, sections, published = false, acceptingResponses = true, settings } = body;
     
+    console.log('🟦 API UPDATE - Request received:', {
+      formId,
+      title: title,
+      description: description,
+      sectionsCount: sections?.length || 0,
+      sections: sections?.map((s: any) => ({ id: s.id, title: s.title, questionsCount: s.questions?.length || 0 })),
+      published,
+      acceptingResponses
+    });
+    
     console.log('🟦 API UPDATE - Form title/description payload:', {
       formId,
       title: title,
@@ -79,7 +89,9 @@ export async function PUT(
               showCorrectAnswers: settings.showCorrectAnswers ?? true,
               releaseGrades: settings.releaseGrades ?? true,
               allowResponseEditing: (settings.isQuiz ? false : (settings.allowResponseEditing || false)),
-              editTimeLimit: settings.editTimeLimit || '24h'
+              editTimeLimit: settings.editTimeLimit || '24h',
+              themeColor: settings.themeColor || '#4285F4',
+              themeBackground: settings.themeBackground || 'rgba(66, 133, 244, 0.1)'
             })
           }
         });
@@ -219,10 +231,23 @@ export async function PUT(
         
         // Handle sections - update existing ones and create new ones
         if (sections && sections.length > 0) {
+          console.log('🔍 Processing sections - Total count:', sections.length);
+          
+          // First, process all sections (update existing, create new)
+          // This must happen BEFORE deleting sections, so moved questions don't get deleted
           for (let sectionIndex = 0; sectionIndex < sections.length; sectionIndex++) {
             const sectionData = sections[sectionIndex];
             
+            console.log('🔍 Processing section:', {
+              index: sectionIndex,
+              id: sectionData.id,
+              title: sectionData.title,
+              isTemp: sectionData.id?.startsWith('temp_'),
+              questionsCount: sectionData.questions?.length || 0
+            });
+            
             if (sectionData.id && !sectionData.id.startsWith('temp_')) {
+              console.log('📝 Updating existing section:', sectionData.id);
               // Update existing section
               await tx.section.update({
                 where: { id: sectionData.id },
@@ -232,8 +257,78 @@ export async function PUT(
                   order: sectionIndex
                 }
               });
+
+              // Also handle questions in existing sections (new questions or updates)
+              if (sectionData.questions && sectionData.questions.length > 0) {
+                for (const question of sectionData.questions) {
+                  if (question.id && !question.id.startsWith('temp_')) {
+                    // Existing question - update it (including sectionId in case it was moved)
+                    await tx.question.update({
+                      where: { id: question.id },
+                      data: {
+                        text: question.text,
+                        description: question.description || null,
+                        type: question.type,
+                        required: question.required,
+                        imageUrl: question.imageUrl || null,
+                        sectionId: sectionData.id, // Update sectionId in case question was moved
+                        points: question.points || 1,
+                        correctAnswers: question.correctAnswers || [],
+                        shuffleOptionsOrder: question.shuffleOptionsOrder || false
+                      }
+                    });
+
+                    // Update options
+                    if (['MULTIPLE_CHOICE', 'CHECKBOXES', 'DROPDOWN'].includes(question.type)) {
+                      await tx.option.deleteMany({
+                        where: { questionId: question.id }
+                      });
+                      
+                      if (question.options && question.options.length > 0) {
+                        await tx.option.createMany({
+                          data: question.options
+                            .filter((opt: any) => opt.text?.trim())
+                            .map((option: any) => ({
+                              text: option.text,
+                              imageUrl: option.imageUrl || null,
+                              questionId: question.id
+                            }))
+                        });
+                      }
+                    }
+                  } else {
+                    // New question in existing section
+                    const createdQuestion = await tx.question.create({
+                      data: {
+                        text: question.text || '',
+                        description: question.description || null,
+                        type: question.type || 'SHORT_ANSWER',
+                        required: question.required || false,
+                        imageUrl: question.imageUrl || null,
+                        sectionId: sectionData.id,
+                        points: question.points || 1,
+                        correctAnswers: question.correctAnswers || [],
+                        shuffleOptionsOrder: question.shuffleOptionsOrder || false
+                      }
+                    });
+
+                    if (question.options && question.options.length > 0) {
+                      await tx.option.createMany({
+                        data: question.options
+                          .filter((opt: any) => opt.text?.trim())
+                          .map((option: any) => ({
+                            text: option.text,
+                            imageUrl: option.imageUrl || null,
+                            questionId: createdQuestion.id
+                          }))
+                      });
+                    }
+                  }
+                }
+              }
             } else {
               // Create new section (no ID or temporary ID)
+              console.log('✨ Creating new section:', sectionData.title);
               const createdSection = await tx.section.create({
                 data: {
                   title: sectionData.title || 'Untitled Section',
@@ -242,6 +337,8 @@ export async function PUT(
                   formId: formId
                 }
               });
+              
+              console.log('✅ New section created with ID:', createdSection.id);
 
               // Create questions for the new section
               if (sectionData.questions && sectionData.questions.length > 0) {
@@ -276,30 +373,202 @@ export async function PUT(
               }
             }
           }
+          
+          // Delete questions that are no longer in the payload
+          // Get all question IDs that are in the payload (real IDs only)
+          const payloadQuestionIds = new Set<string>();
+          sections.forEach((section: any) => {
+            if (section.questions) {
+              section.questions.forEach((q: any) => {
+                if (q.id && !q.id.startsWith('temp_')) {
+                  payloadQuestionIds.add(q.id);
+                }
+              });
+            }
+          });
+          
+          // Count how many NEW questions are in the payload (undefined or temp IDs)
+          let newQuestionsCount = 0;
+          sections.forEach((section: any) => {
+            if (section.questions) {
+              section.questions.forEach((q: any) => {
+                if (!q.id || q.id.startsWith('temp_')) {
+                  newQuestionsCount++;
+                }
+              });
+            }
+          });
+          
+          console.log('🔍 Questions in payload (real IDs):', Array.from(payloadQuestionIds));
+          console.log('🔍 New questions count:', newQuestionsCount);
+          
+          // Get all existing questions in the form AFTER creates/updates
+          const existingQuestions = await tx.question.findMany({
+            where: {
+              section: {
+                formId: formId
+              }
+            },
+            select: { id: true }
+          });
+          
+          console.log('🔍 Total questions in DB after processing:', existingQuestions.length);
+          
+          // Expected question count = questions with real IDs + new questions just created
+          const expectedQuestionCount = payloadQuestionIds.size + newQuestionsCount;
+          const actualQuestionCount = existingQuestions.length;
+          
+          console.log('🔍 Expected questions:', expectedQuestionCount, 'Actual in DB:', actualQuestionCount);
+          
+          // Only delete questions if we have MORE than expected
+          // Find questions to delete (exist in DB but not in payload, and only excess ones)
+          const questionsToDelete = existingQuestions
+            .filter(q => !payloadQuestionIds.has(q.id))
+            .slice(0, Math.max(0, actualQuestionCount - expectedQuestionCount)) // Only delete excess
+            .map(q => q.id);
+          
+          if (questionsToDelete.length > 0) {
+            console.log('🗑️ Deleting questions:', questionsToDelete);
+            
+            // Delete answers first
+            await tx.answer.deleteMany({
+              where: {
+                questionId: { in: questionsToDelete }
+              }
+            });
+            
+            // Delete options
+            await tx.option.deleteMany({
+              where: {
+                questionId: { in: questionsToDelete }
+              }
+            });
+            
+            // Delete the questions
+            await tx.question.deleteMany({
+              where: {
+                id: { in: questionsToDelete }
+              }
+            });
+            
+            console.log('✅ Successfully deleted questions');
+          }
+          
+          // NOW delete sections that are not in the payload (after all updates are done)
+          // This ensures that moved questions have been reassigned before their old section is deleted
+          // Get current sections AFTER all creates/updates
+          const existingSections = await tx.section.findMany({
+            where: { formId: formId },
+            select: { id: true }
+          });
+          
+          console.log('🔍 Existing sections in DB after processing:', existingSections.map(s => s.id));
+          
+          // Get the section IDs from the payload (only real IDs, not temp ones or undefined)
+          // Also, if there are NEW sections (undefined ID), we should NOT delete them
+          const payloadSectionIds = sections
+            .filter((s: any) => s.id && typeof s.id === 'string' && !s.id.startsWith('temp_'))
+            .map((s: any) => s.id);
+          
+          // Count how many sections have undefined or temp IDs (these are new sections that were just created)
+          const newSectionsCount = sections.filter((s: any) => !s.id || s.id.startsWith('temp_')).length;
+          
+          console.log('🔍 Sections in payload (real IDs only):', payloadSectionIds);
+          console.log('🔍 New sections count (will have just been created):', newSectionsCount);
+          
+          // Only delete sections if:
+          // 1. They exist in DB
+          // 2. They are NOT in the payload
+          // 3. Taking into account that new sections were just created (so total should match)
+          const expectedSectionCount = payloadSectionIds.length + newSectionsCount;
+          const actualSectionCount = existingSections.length;
+          
+          console.log('🔍 Expected sections:', expectedSectionCount, 'Actual in DB:', actualSectionCount);
+          
+          // Only delete if we have MORE sections in DB than expected
+          // (This means some old sections should be removed)
+          const sectionsToDelete = existingSections
+            .filter(s => !payloadSectionIds.includes(s.id))
+            .slice(0, Math.max(0, actualSectionCount - expectedSectionCount)) // Only delete excess sections
+            .map(s => s.id);
+          
+          console.log('🔍 Sections to delete:', sectionsToDelete);
+          
+          if (sectionsToDelete.length > 0) {
+            console.log('🗑️ Deleting sections:', sectionsToDelete);
+            
+            try {
+              // Delete answers first (for forms with responses)
+              await tx.answer.deleteMany({
+                where: {
+                  question: {
+                    section: {
+                      id: { in: sectionsToDelete }
+                    }
+                  }
+                }
+              });
+              
+              // Delete options
+              await tx.option.deleteMany({
+                where: {
+                  question: {
+                    section: {
+                      id: { in: sectionsToDelete }
+                    }
+                  }
+                }
+              });
+              
+              // Delete questions in those sections (should be none if they were moved)
+              await tx.question.deleteMany({
+                where: {
+                  section: {
+                    id: { in: sectionsToDelete }
+                  }
+                }
+              });
+              
+              // Delete the sections themselves
+              await tx.section.deleteMany({
+                where: {
+                  id: { in: sectionsToDelete }
+                }
+              });
+              
+              console.log('✅ Successfully deleted sections');
+            } catch (deleteError) {
+              console.error('❌ Error deleting sections:', deleteError);
+              throw deleteError;
+            }
+          }
         }
         
-        // Get existing questions to check if they match (through sections)
-        const existingQuestions = await tx.question.findMany({
-          where: { 
-            section: {
-              formId: formId
-            }
-          },
-          include: { options: true },
-          orderBy: { id: 'asc' }
-        });
+        // Only process flattened questions array if sections weren't provided (legacy support)
+        // If sections are provided, all questions are already handled within sections
+        if (!sections || sections.length === 0) {
+          // Get existing questions to check if they match (through sections)
+          const existingQuestions = await tx.question.findMany({
+            where: { 
+              section: {
+                formId: formId
+              }
+            },
+            include: { options: true },
+            orderBy: { id: 'asc' }
+          });
 
-        // For forms with responses, we'll be more flexible but still preserve data
-        // Allow safe changes and warn about unsafe ones
-        
-        // Map questions by their permanent IDs (non-temp IDs)
-        const existingQuestionsMap = new Map();
-        existingQuestions.forEach(q => {
-          existingQuestionsMap.set(q.id, q);
-        });
+          // For forms with responses, we'll be more flexible but still preserve data
+          // Allow safe changes and warn about unsafe ones
+          
+          // Map questions by their permanent IDs (non-temp IDs)
+          const existingQuestionsMap = new Map();
+          existingQuestions.forEach(q => {
+            existingQuestionsMap.set(q.id, q);
+          });
 
-        // Process each question in the new set
-        for (const newQuestion of questions) {
+          // Process each question in the new set
+          for (const newQuestion of questions) {
           if (newQuestion.id && !newQuestion.id.toString().startsWith('temp_')) {
             // Existing question - update it
             const existingQuestion = existingQuestionsMap.get(newQuestion.id);
@@ -396,36 +665,37 @@ export async function PUT(
           }
         }
 
-        // Handle question deletions - identify questions that are no longer in the new list
-        const newQuestionIds = new Set(
-          questions
-            .filter((q: any) => q.id && !q.id.toString().startsWith('temp_'))
-            .map((q: any) => q.id)
-        );
-        
-        const questionsToDelete = existingQuestions.filter(q => !newQuestionIds.has(q.id));
-        
-        if (questionsToDelete.length > 0) {
-          console.log(`Deleting ${questionsToDelete.length} questions from form with responses`);
+          // Handle question deletions - identify questions that are no longer in the new list
+          const newQuestionIds = new Set(
+            questions
+              .filter((q: any) => q.id && !q.id.toString().startsWith('temp_'))
+              .map((q: any) => q.id)
+          );
           
-          // Delete questions and their related data
-          for (const questionToDelete of questionsToDelete) {
-            // First delete related answers
-            await tx.answer.deleteMany({
-              where: { questionId: questionToDelete.id }
-            });
+          const questionsToDelete = existingQuestions.filter(q => !newQuestionIds.has(q.id));
+        
+          if (questionsToDelete.length > 0) {
+            console.log(`Deleting ${questionsToDelete.length} questions from form with responses`);
             
-            // Then delete options
-            await tx.option.deleteMany({
-              where: { questionId: questionToDelete.id }
-            });
-            
-            // Finally delete the question
-            await tx.question.delete({
-              where: { id: questionToDelete.id }
-            });
+            // Delete questions and their related data
+            for (const questionToDelete of questionsToDelete) {
+              // First delete related answers
+              await tx.answer.deleteMany({
+                where: { questionId: questionToDelete.id }
+              });
+              
+              // Then delete options
+              await tx.option.deleteMany({
+                where: { questionId: questionToDelete.id }
+              });
+              
+              // Finally delete the question
+              await tx.question.delete({
+                where: { id: questionToDelete.id }
+              });
+            }
           }
-        }
+        } // End of if (!sections || sections.length === 0)
       }
 
       // Add debug logs to confirm transaction success

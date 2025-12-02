@@ -120,6 +120,13 @@ export default function CreateFormPage() {
       return;
     }
 
+    // Check if there are any questions with content
+    const hasValidQuestions = questions.some(q => q.question.trim() !== "");
+    if (!hasValidQuestions) {
+      alert('Please add at least one question to the form.');
+      return;
+    }
+
     setSaving(true);
     setJustSaved(false);
     setTimeout(() => {
@@ -187,6 +194,11 @@ export default function CreateFormPage() {
     // Add a small delay to ensure component is fully mounted
     const timeoutId = setTimeout(() => {
       const handleNavbarPublish = () => {
+        // Check for unsaved changes before publishing
+        if (hasUnsavedChanges()) {
+          alert('Please save the draft before publishing.');
+          return;
+        }
         if (typeof handleSaveForm === 'function') {
           handleSaveForm(true); // Save and publish
         }
@@ -220,7 +232,7 @@ export default function CreateFormPage() {
       clearTimeout(timeoutId);
       cleanup?.();
     };
-  }, []);
+  }, [formTitle, formDescription, questions]);
 
   // Effect to show/hide preview button based on changes
   useEffect(() => {
@@ -239,6 +251,8 @@ export default function CreateFormPage() {
         saveButton.setAttribute('disabled', 'true');
         saveText.textContent = 'Saved!';
         previewButton.style.display = 'flex';
+        // Reset justSaved after 2 seconds
+        setTimeout(() => setJustSaved(false), 2000);
       } else if (hasChanges) {
         previewButton.style.display = 'none';
         saveButton.removeAttribute('disabled');
@@ -325,69 +339,9 @@ export default function CreateFormPage() {
     });
   };
 
-  // Validation and save effect
-  useEffect(() => {
-    console.log("useEffect triggered with saving:", saving);
-
-    if (!saving) {
-      console.log("Saving is false, skipping logic.");
-      return;
-    }
-
-    const validQuestions = questions.filter((q) => {
-      console.log("Checking question validity:", q.question);
-      const isValid = q.question.trim() !== "";
-      console.log("Is question valid?", isValid);
-      return isValid;
-    }).map((q) => ({
-      ...q,
-      options: q.options?.filter((opt) => opt.text.trim() !== "" || opt.imageUrl) || [],
-    }));
-
-    console.log("Filtered valid questions:", validQuestions);
-
-    if (validQuestions.length === 0) {
-      // alert("Please add at least one question with text");
-      setSaving(false);
-      return;
-    }
-
-    const formData = {
-      title: formTitle,
-      description: formDescription,
-      questions: validQuestions,
-      published: false,
-      settings: formSettings,
-    };
-
-    fetch("/api/forms/create", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData),
-    })
-      .then((response) => response.json())
-      .then((result) => {
-        if (result.success) {
-          setJustSaved(true);
-          setSaving(false);
-          setTimeout(() => {
-            window.location.href = `/forms/${result.formId}`;
-          }, 1000);
-        } else {
-          setSaving(false);
-          alert("Error saving form: " + (result.message || "Unknown error"));
-        }
-      })
-      .catch(() => {
-        setSaving(false);
-      });
-  }, [saving, questions]);
-
   return (
     <div className="min-h-screen bg-blue-50">
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6 lg:py-8">
         
         {/* Form Header Card - Our Style */}
         <div className="bg-white rounded-lg border border-gray-200 mb-6">
@@ -395,13 +349,13 @@ export default function CreateFormPage() {
           <div className="h-3 bg-blue-600 rounded-t-lg"></div>
           
           {/* Form header content */}
-          <div className="p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             {/* Form title - Google Forms style */}
             <input
               type="text"
               value={formTitle}
               onChange={(e) => setFormTitle(e.target.value)}
-              className="w-full text-3xl font-normal text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
+              className="w-full text-xl sm:text-2xl lg:text-3xl font-normal text-gray-900 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
               placeholder="Untitled form"
             />
             
@@ -411,7 +365,7 @@ export default function CreateFormPage() {
               onChange={(e) => setFormDescription(e.target.value)}
               placeholder="Form description"
               rows={2}
-              className="w-full mt-4 text-base text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 resize-none transition-colors"
+              className="w-full mt-3 sm:mt-4 text-sm sm:text-base text-gray-600 bg-transparent border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 resize-none transition-colors"
             />
           </div>
         </div>
@@ -419,7 +373,7 @@ export default function CreateFormPage() {
         {/* Tab Navigation */}
         <div className="border-b border-gray-200 mb-4">
           <div className="flex justify-between items-center">
-            <nav className="-mb-px flex space-x-8">
+            <nav className="-mb-px flex space-x-4 sm:space-x-6 lg:space-x-8">
               <button
                 onClick={() => setActiveTab('questions')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -444,7 +398,7 @@ export default function CreateFormPage() {
             
             {/* Total Points Display */}
             {formSettings.isQuiz && questions.length > 0 && (
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
                 <span className="font-medium text-gray-700">
                   Total points: {questions.reduce((total, q) => total + (q.points || 1), 0)}
                 </span>
@@ -485,7 +439,7 @@ export default function CreateFormPage() {
             <div className="mt-6">
               <button 
                 onClick={handleAddQuestion}
-                className="flex items-center space-x-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
+                className="flex items-center justify-center sm:justify-start space-x-2 px-4 py-2 w-full sm:w-auto text-blue-600 hover:bg-blue-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -498,27 +452,27 @@ export default function CreateFormPage() {
 
         {/* Settings Tab Content */}
         {activeTab === 'settings' && (
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-6">Form Settings</h3>
+          <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4 sm:mb-6">Form Settings</h3>
             
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8">
               {/* Question Settings */}
               <div className="space-y-4">
-                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                   Question Settings
                 </h4>
                 
                 {/* Shuffle Questions */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Shuffle Question Order</label>
-                    <p className="text-sm text-gray-500 mt-1">
+                <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700">Shuffle Question Order</label>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       Present questions in random order to each respondent
                     </p>
                   </div>
                   <button
                     onClick={() => setFormSettings(prev => ({ ...prev, shuffleQuestions: !prev.shuffleQuestions }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                       formSettings.shuffleQuestions ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
@@ -531,16 +485,16 @@ export default function CreateFormPage() {
                 </div>
 
                 {/* Show Progress */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Show Progress Bar</label>
-                    <p className="text-sm text-gray-500 mt-1">
+                <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700">Show Progress Bar</label>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       Display completion progress to respondents
                     </p>
                   </div>
                   <button
                     onClick={() => setFormSettings(prev => ({ ...prev, showProgress: !prev.showProgress }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                       formSettings.showProgress ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
@@ -553,16 +507,16 @@ export default function CreateFormPage() {
                 </div>
 
                 {/* Make Questions Required by Default */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Make Questions Required by Default</label>
-                    <p className="text-sm text-gray-500 mt-1">
+                <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700">Make Questions Required by Default</label>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       New questions will be marked as required automatically. You can still make individual questions optional later.
                     </p>
                   </div>
                   <button
                     onClick={() => setFormSettings(prev => ({ ...prev, defaultRequired: !prev.defaultRequired }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                       formSettings.defaultRequired ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
@@ -577,21 +531,21 @@ export default function CreateFormPage() {
 
               {/* Response Settings */}
               <div className="space-y-4">
-                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                   Response Settings
                 </h4>
                 
                 {/* Collect Email */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Collect Email Addresses</label>
-                    <p className="text-sm text-gray-500 mt-1">
+                <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700">Collect Email Addresses</label>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       Require respondents to provide their email address
                     </p>
                   </div>
                   <button
                     onClick={() => setFormSettings(prev => ({ ...prev, collectEmail: !prev.collectEmail }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                       formSettings.collectEmail ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
@@ -604,16 +558,16 @@ export default function CreateFormPage() {
                 </div>
 
                 {/* Multiple Responses */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Allow Multiple Responses</label>
-                    <p className="text-sm text-gray-500 mt-1">
+                <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700">Allow Multiple Responses</label>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       Users can submit multiple responses to this form
                     </p>
                   </div>
                   <button
                     onClick={() => setFormSettings(prev => ({ ...prev, allowMultipleResponses: !prev.allowMultipleResponses }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                       formSettings.allowMultipleResponses ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
@@ -628,21 +582,21 @@ export default function CreateFormPage() {
 
               {/* Quiz Settings */}
               <div className="space-y-4">
-                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                   Quiz Settings
                 </h4>
                 
                 {/* Make this a quiz */}
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <label className="text-sm font-medium text-gray-700">Make this a quiz</label>
-                    <p className="text-sm text-gray-500 mt-1">
+                <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700">Make this a quiz</label>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-1">
                       Collect and grade responses with automatic scoring
                     </p>
                   </div>
                   <button
                     onClick={() => setFormSettings(prev => ({ ...prev, isQuiz: !prev.isQuiz }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                       formSettings.isQuiz ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                   >
@@ -658,16 +612,16 @@ export default function CreateFormPage() {
                 {formSettings.isQuiz && (
                   <>
                     {/* Release grades */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <label className="text-sm font-medium text-gray-700">Release grades immediately</label>
-                        <p className="text-sm text-gray-500 mt-1">
+                    <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <label className="text-xs sm:text-sm font-medium text-gray-700">Release grades immediately</label>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
                           Show quiz results right after submission
                         </p>
                       </div>
                       <button
                         onClick={() => setFormSettings(prev => ({ ...prev, releaseGrades: !prev.releaseGrades }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                           formSettings.releaseGrades ? 'bg-blue-600' : 'bg-gray-300'
                         }`}
                       >
@@ -680,16 +634,16 @@ export default function CreateFormPage() {
                     </div>
 
                     {/* Show correct answers */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <label className="text-sm font-medium text-gray-700">Show correct answers</label>
-                        <p className="text-sm text-gray-500 mt-1">
+                    <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-4">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <label className="text-xs sm:text-sm font-medium text-gray-700">Show correct answers</label>
+                        <p className="text-xs sm:text-sm text-gray-500 mt-1">
                           Display correct answers after quiz submission
                         </p>
                       </div>
                       <button
                         onClick={() => setFormSettings(prev => ({ ...prev, showCorrectAnswers: !prev.showCorrectAnswers }))}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                           formSettings.showCorrectAnswers ? 'bg-blue-600' : 'bg-gray-300'
                         }`}
                       >
@@ -706,18 +660,18 @@ export default function CreateFormPage() {
 
               {/* Confirmation Message */}
               <div className="space-y-4">
-                <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                   Confirmation Message
                 </h4>
                 
                 <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">
+                  <label className="text-xs sm:text-sm font-medium text-gray-700 block mb-2">
                     Message shown after form submission
                   </label>
                   <textarea
                     value={formSettings.confirmationMessage}
                     onChange={(e) => setFormSettings(prev => ({ ...prev, confirmationMessage: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
                     rows={3}
                     placeholder="Enter confirmation message..."
                   />
@@ -729,7 +683,7 @@ export default function CreateFormPage() {
         </div>
 
         {/* Actions */}
-        <div className="flex justify-between">
+        <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0">
           <Link href="/">
             <Button variant="outline">← Back to Home</Button>
           </Link>

@@ -88,6 +88,7 @@ export default function Form() {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [loadingResponses, setLoadingResponses] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   
   const [activeTab, setActiveTab] = useState<'questions' | 'responses' | 'settings'>('questions');
   const [responseData, setResponseData] = useState<ResponseData | null>(null);
@@ -476,37 +477,29 @@ export default function Form() {
         return;
       }
 
-      try {
-        // Ensure unsaved changes are saved first
-        if (hasUnsavedChanges()) {
-          console.log('🔍 Unsaved changes detected. Saving form before publishing...');
-          await saveForm();
-          console.log('🔍 Form saved successfully. Updated formData:', formData);
-        }
+      // Check for unsaved changes and show alert without saving
+      if (hasUnsavedChanges()) {
+        alert('Please save your changes before publishing the form.');
+        return;
+      }
 
-        // Double-check that title and description are saved
-        if (!formData.title.trim() || !formData.description.trim()) {
-          alert('Form title and description must be saved before publishing.');
-          return;
+      // Handle publishing logic
+      if (isExistingForm) {
+        if (!formData.published) {
+          togglePublishStatus();
         }
-
-        // Handle publishing logic
-        if (isExistingForm) {
-          if (!formData.published) {
-            togglePublishStatus();
-          }
-        } else {
-          await saveForm(true); // Save and publish for new forms
-          console.log('🔍 Form published successfully. Updated formData:', formData);
-        }
-      } catch (error) {
-        console.error('❌ Error during save or publish:', error);
-        alert('An error occurred while saving or publishing the form. Please try again.');
+      } else {
+        await saveForm(true); // Save and publish for new forms
       }
     };
 
     const handleNavbarUnpublish = () => {
       if (isExistingForm && formData.published) {
+        // Check for unsaved changes before unpublishing
+        if (hasUnsavedChanges()) {
+          alert('Please save your changes before unpublishing the form.');
+          return;
+        }
         // Unpublish the form
         togglePublishStatus();
       }
@@ -531,7 +524,7 @@ export default function Form() {
       navbarEvents.unsubscribe('toggleResponses', handleToggleResponses);
       navbarEvents.unsubscribe('saveForm', handleNavbarSave);
     };
-  }, [isExistingForm, formData.published, formData.sections, formData.id, loading]);
+  }, [isExistingForm, formData.published, formData.sections, formData.id, formData.title, formData.description, loading]);
 
   // Update navbar whenever formData changes - with proper timing
   useEffect(() => {
@@ -724,11 +717,16 @@ export default function Form() {
           formId: data.form.id,
           title: data.form.title
         });
+        
+        // Return the fetched data for use after save
+        return { formData: data.form, settings: loadedSettings };
       } else {
         router.push('/');
+        return null;
       }
     } catch (error) {
       router.push('/');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -861,6 +859,7 @@ export default function Form() {
   const deleteSection = (sectionId: string) => {
     if (!formData.sections || formData.sections.length <= 1) {
       // Don't allow deleting the last section
+      alert('Cannot delete the last section. A form must have at least one section.');
       return;
     }
 
@@ -934,12 +933,19 @@ export default function Form() {
     });
 
     setFormData({ ...formData, sections: updatedSections });
+    // Changes will be saved when user clicks "Save Changes"
   };
 
   const deleteSectionDirectly = (sectionId: string) => {
     if (!formData.sections) return;
     
-    // Remove the section (for empty sections or when user chooses to delete entirely)
+    // Prevent deleting the last section
+    if (formData.sections.length <= 1) {
+      alert('Cannot delete the last section. A form must have at least one section.');
+      return;
+    }
+    
+    // Remove the section from local state
     const updatedSections = formData.sections.filter(section => section.id !== sectionId);
     
     // Update order values
@@ -948,6 +954,7 @@ export default function Form() {
     });
 
     setFormData({ ...formData, sections: updatedSections });
+    // Changes will be saved when user clicks "Save Changes"
   };
 
   const deleteQuestion = (questionId: string) => {
@@ -956,10 +963,15 @@ export default function Form() {
   };
 
   const duplicateQuestion = (questionId: string) => {
-    const allQuestions = getAllQuestions(formData.sections || []);
-    const questionToDuplicate = allQuestions.find((q: any) => q.id === questionId);
-    
-    if (questionToDuplicate) {
+    const updatedSections = formData.sections.map((section) => {
+      // Check if the section contains the question to duplicate
+      const questionIndex = section.questions.findIndex((q) => q.id === questionId);
+      if (questionIndex === -1) {
+        return section; // No changes for sections that don't contain the question
+      }
+
+      // Duplicate the question
+      const questionToDuplicate = section.questions[questionIndex];
       const duplicatedQuestion = {
         ...questionToDuplicate,
         id: `temp_${Date.now()}`,
@@ -968,10 +980,21 @@ export default function Form() {
           id: `temp_${Date.now()}_${Math.random()}`
         }))
       };
-      
-      const updatedSections = addQuestionToSections(formData.sections || [], duplicatedQuestion);
-      setFormData({ ...formData, sections: updatedSections });
-    }
+
+      // Insert the duplicated question right after the original
+      const updatedQuestions = [
+        ...section.questions.slice(0, questionIndex + 1),
+        duplicatedQuestion,
+        ...section.questions.slice(questionIndex + 1)
+      ];
+
+      return {
+        ...section,
+        questions: updatedQuestions
+      };
+    });
+
+    setFormData({ ...formData, sections: updatedSections });
   };
 
   const addOption = (questionId: string) => {
@@ -1001,19 +1024,48 @@ export default function Form() {
     }
     
     if (!formData.title.trim()) {
+      alert('Form title cannot be empty');
       return;
     }
 
-    // Validate that all sections have at least one question
-    const sectionsWithoutQuestions = (formData.sections || []).filter(section => 
-      !section.questions || section.questions.length === 0 || 
-      section.questions.every(q => !q.text || q.text.trim() === '')
-    );
+    // Validate sections
+    if (formData.sections && formData.sections.length > 0) {
+      // Check for empty section titles
+      const sectionsWithEmptyTitle = formData.sections.filter(section => 
+        !section.title || section.title.trim() === ''
+      );
+      
+      if (sectionsWithEmptyTitle.length > 0) {
+        alert('All sections must have a title. Please add titles to all sections before saving.');
+        return;
+      }
 
-    if (sectionsWithoutQuestions.length > 0) {
-      const sectionNames = sectionsWithoutQuestions.map(section => section.title || 'Untitled Section').join(', ');
-      alert(`Cannot save form: The following sections are empty and need at least one question with text: ${sectionNames}`);
-      return;
+      // Check for sections without questions
+      const sectionsWithoutQuestions = formData.sections.filter(section => 
+        !section.questions || section.questions.length === 0
+      );
+      
+      if (sectionsWithoutQuestions.length > 0) {
+        const sectionNames = sectionsWithoutQuestions.map((section, index) => 
+          section.title || `Section ${index + 1}`
+        ).join(', ');
+        alert(`The following sections need at least one question: ${sectionNames}`);
+        return;
+      }
+
+      // Check for sections with only empty questions
+      const sectionsWithOnlyEmptyQuestions = formData.sections.filter(section => 
+        section.questions && section.questions.length > 0 && 
+        section.questions.every(q => !q.text || q.text.trim() === '')
+      );
+      
+      if (sectionsWithOnlyEmptyQuestions.length > 0) {
+        const sectionNames = sectionsWithOnlyEmptyQuestions.map((section, index) => 
+          section.title || `Section ${index + 1}`
+        ).join(', ');
+        alert(`The following sections have questions with no text: ${sectionNames}. Please add text to at least one question in each section.`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -1109,22 +1161,37 @@ export default function Form() {
         body: JSON.stringify(payload),
       });
 
+      console.log('🔵 FRONTEND SAVE - Response status:', response.status);
       const data = await response.json();
+      console.log('🔵 FRONTEND SAVE - Response data:', data);
+      
+      if (!response.ok) {
+        console.error('❌ API ERROR - Status:', response.status);
+        console.error('❌ API ERROR - Data:', data);
+        console.error('❌ API ERROR - Details:', data.details);
+        console.error('❌ API ERROR - Error:', data.error);
+      }
       
       if (data.success) {
-        // Immediately update originalFormData to prevent repeated change detection
-        setOriginalFormData(JSON.parse(JSON.stringify(formData)));
-        setOriginalSettings({ ...formSettings });
-
         // After successful save, refetch the form data to get the latest state from database
         console.log('🔵 FRONTEND SAVE - Success, refetching form data');
-        await fetchFormData(false);
+        console.log('🔵 FRONTEND SAVE - Current formData before refetch:', {
+          sectionsCount: formData.sections?.length,
+          sections: formData.sections?.map((s: any) => ({ title: s.title, qCount: s.questions?.length }))
+        });
+        
+        const fetchedData = await fetchFormData(false);
+        
+        console.log('🔵 FRONTEND SAVE - Fetched data after save:', {
+          sectionsCount: fetchedData?.formData?.sections?.length,
+          sections: fetchedData?.formData?.sections?.map((s: any) => ({ title: s.title, qCount: s.questions?.length }))
+        });
 
-        // Small delay to ensure state is fully updated, then set original data
-        setTimeout(() => {
-          setOriginalFormData(JSON.parse(JSON.stringify(formData)));
-          setOriginalSettings({ ...formSettings });
-        }, 100);
+        // Immediately set originalFormData and originalSettings from the fresh fetched data
+        if (fetchedData) {
+          setOriginalFormData(JSON.parse(JSON.stringify(fetchedData.formData)));
+          setOriginalSettings(JSON.parse(JSON.stringify(fetchedData.settings)));
+        }
 
         // Show saved state briefly
         setJustSaved(true);
@@ -1189,7 +1256,7 @@ export default function Form() {
       return;
     }
 
-    setSaving(true);
+    setPublishing(true);
     try {
       const newPublishedStatus = !formData.published;
       console.log('togglePublishStatus - Changing from:', formData.published, 'to:', newPublishedStatus);
@@ -1225,7 +1292,7 @@ export default function Form() {
     } catch (error) {
       console.error('Error toggling publish status:', error);
     } finally {
-      setSaving(false);
+      setPublishing(false);
     }
   };
 
@@ -1234,7 +1301,7 @@ export default function Form() {
       return;
     }
 
-    setSaving(true);
+    setPublishing(true);
     try {
       const newAcceptingStatus = !formData.acceptingResponses;
       console.log('toggleResponseAcceptance - Changing from:', formData.acceptingResponses, 'to:', newAcceptingStatus);
@@ -1267,7 +1334,7 @@ export default function Form() {
     } catch (error) {
       console.error('Error toggling response acceptance:', error);
     } finally {
-      setSaving(false);
+      setPublishing(false);
     }
   };
 
@@ -1323,15 +1390,15 @@ export default function Form() {
         overscrollBehavior: 'none'
       }}
     >
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         
         {/* Google Forms Style Tab Navigation */}
-        <div className="bg-white rounded-lg border border-gray-200 mb-6 shadow-sm">
-          <div className="flex justify-between items-center">
+        <div className="bg-white rounded-lg border border-gray-200 mb-4 sm:mb-6 shadow-sm overflow-x-auto">
+          <div className="flex justify-between items-center min-w-max sm:min-w-0">
             <div className="flex">
               <button
                 onClick={() => handleTabChange('questions')}
-                className={`px-6 py-4 text-sm font-semibold transition-colors ${
+                className={`px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap ${
                   activeTab === 'questions'
                     ? 'text-current'
                     : 'text-gray-500 hover:text-gray-700'
@@ -1342,31 +1409,35 @@ export default function Form() {
               </button>
               <button
                 onClick={() => handleTabChange('responses')}
-                className={`px-6 py-4 text-sm font-semibold transition-colors ${
+                className={`px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap ${
                   activeTab === 'responses'
                     ? 'text-current'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
                 style={activeTab === 'responses' ? { color: formSettings.themeColor } : {}}
               >
-                Responses {responseCount > 0 && <span className="ml-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-medium">{responseCount}</span>}
+                Responses {responseCount > 0 && <span className="ml-1 bg-blue-100 text-blue-700 px-1.5 sm:px-2 py-0.5 rounded-full text-xs font-medium">{responseCount}</span>}
               </button>
               <button
                 onClick={() => handleTabChange('settings')}
-                className={`px-6 py-4 text-sm font-medium transition-colors ${
+                className={`px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs sm:text-sm font-semibold transition-colors flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${
                   activeTab === 'settings'
                     ? 'text-current'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
                 style={activeTab === 'settings' ? { color: formSettings.themeColor } : {}}
               >
+                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
                 Settings
               </button>
             </div>
             
             {/* Total Points Display */}
             {formSettings.isQuiz && getAllQuestions(formData.sections || []).length > 0 && (
-              <div className="text-sm text-gray-600 px-6">
+              <div className="text-xs sm:text-sm text-gray-600 px-3 sm:px-4 lg:px-6 whitespace-nowrap">
                 Total points: {getAllQuestions(formData.sections || []).reduce((total: number, q: any) => total + (q.points || 1), 0)}
               </div>
             )}
@@ -1378,9 +1449,9 @@ export default function Form() {
           <>
             {/* Form Status Indicator */}
             {isExistingForm && (
-              <div className="mb-4 flex items-center justify-between">
+              <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                 <div className="flex items-center space-x-2">
-                  <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                  <div className={`inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
                     formData.published 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-gray-100 text-gray-800'
@@ -1391,9 +1462,9 @@ export default function Form() {
                     {formData.published ? 'Published' : 'Draft'}
                   </div>
                   {formData.published && (
-                    <div className="flex items-center space-x-2 text-sm text-gray-600">
-                      <span>Public link:</span>
-                      <span className="text-blue-600 font-mono">
+                    <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600">
+                      <span className="hidden sm:inline">Public link:</span>
+                      <span className="text-blue-600 font-mono text-xs truncate max-w-[120px] sm:max-w-none">
                         {typeof window !== 'undefined' ? `${window.location.origin}/forms/${formId}/view` : ''}
                       </span>
                       <button 
@@ -1403,7 +1474,7 @@ export default function Form() {
                           setLinkCopied(true);
                           setTimeout(() => setLinkCopied(false), 2000);
                         }}
-                        className={`p-1.5 rounded-md transition-all duration-200 flex items-center ${
+                        className={`p-1 sm:p-1.5 rounded-md transition-all duration-200 flex items-center ${
                           linkCopied 
                             ? 'text-green-600 bg-green-50 hover:bg-green-100' 
                             : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
@@ -1411,11 +1482,11 @@ export default function Form() {
                         title={linkCopied ? 'Copied!' : 'Copy link'}
                       >
                         {linkCopied ? (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                           </svg>
                         ) : (
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                           </svg>
                         )}
@@ -1428,41 +1499,41 @@ export default function Form() {
             )}
 
             {/* Form Header Card */}
-            <div className="bg-white rounded-lg mb-6">
-              <div className="h-3 rounded-t-lg" style={{ backgroundColor: formSettings.themeColor }}></div>
-              <div className="p-8">
+            <div className="bg-white rounded-lg mb-4 sm:mb-6">
+              <div className="h-2 sm:h-3 rounded-t-lg" style={{ backgroundColor: formSettings.themeColor }}></div>
+              <div className="p-4 sm:p-6 lg:p-8">
                 <input
                   type="text"
                   value={formData.title || ''}
                   onChange={(e) => updateFormTitle(e.target.value)}
                   placeholder="Untitled form"
-                  className="w-full text-3xl font-normal text-gray-900 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
-                  style={{ minHeight: '45px' }}
+                  className="w-full text-xl sm:text-2xl lg:text-3xl font-normal text-gray-900 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 transition-colors"
+                  style={{ minHeight: '40px' }}
                 />
                 
                 <textarea
                   value={formData.description || ''}
                   onChange={(e) => updateFormDescription(e.target.value)}
                   placeholder="Form description"
-                  className="w-full mt-4 text-base text-gray-600 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 resize-none transition-colors"
-                  style={{ minHeight: '50px' }}
+                  className="w-full mt-3 sm:mt-4 text-sm sm:text-base text-gray-600 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 py-1 -mx-2 resize-none transition-colors"
+                  style={{ minHeight: '45px' }}
                   rows={2}
                 />
               </div>
             </div>
 
             {/* Questions Section - Section-wise Display */}
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {formData.sections && formData.sections.length > 0 ? (
                 formData.sections.map((section, sectionIndex) => (
                   <div key={section.id} className="space-y-0">
                     {/* Section Header with Lines */}
                     {formData.sections.length > 1 && (
-                      <div className="mb-6">
+                      <div className="mb-4 sm:mb-6">
                         {/* Section Number and Delete Button */}
-                        <div className="mb-3 flex items-center justify-between">
+                        <div className="mb-2 sm:mb-3 flex items-center justify-between">
                           <span 
-                            className="text-sm font-medium px-3 py-1 rounded-full"
+                            className="text-xs sm:text-sm font-medium px-2.5 sm:px-3 py-1 rounded-full"
                             style={{ 
                               color: formSettings.themeColor, 
                               backgroundColor: `${formSettings.themeColor}15` 
@@ -1473,10 +1544,10 @@ export default function Form() {
                           {formData.sections.length > 1 && (
                             <button
                               onClick={() => deleteSection(section.id)}
-                              className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
+                              className="p-1.5 sm:p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-full transition-colors"
                               title="Delete Section"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
@@ -1484,22 +1555,22 @@ export default function Form() {
                         </div>
                         
                         {/* Section Container - White background like form header */}
-                        <div className="bg-white rounded-lg border border-gray-200 p-6">
+                        <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
                           {/* Section Title */}
-                          <div className="mb-4">
+                          <div className="mb-3 sm:mb-4">
                             <input
                               type="text"
                               value={section.title}
                               onChange={(e) => {
-                                const updatedSections = [...formData.sections];
-                                updatedSections[sectionIndex] = {
-                                  ...updatedSections[sectionIndex],
-                                  title: e.target.value || `Section ${sectionIndex + 1}`
-                                };
+                                const updatedSections = formData.sections.map((sec, idx) => 
+                                  idx === sectionIndex 
+                                    ? { ...sec, title: e.target.value }
+                                    : sec
+                                );
                                 setFormData({ ...formData, sections: updatedSections });
                               }}
                               placeholder={`Section ${sectionIndex + 1} Title`}
-                              className="w-full text-lg font-medium text-gray-900 bg-white border-none outline-none focus:bg-gray-50 rounded px-3 py-1 transition-colors placeholder-gray-400"
+                              className="w-full text-base sm:text-lg font-medium text-gray-900 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 sm:px-3 py-1 transition-colors placeholder-gray-400"
                             />
                           </div>
                           
@@ -1508,15 +1579,15 @@ export default function Form() {
                             <textarea
                               value={section.description || ''}
                               onChange={(e) => {
-                                const updatedSections = [...formData.sections];
-                                updatedSections[sectionIndex] = {
-                                  ...updatedSections[sectionIndex],
-                                  description: e.target.value || null
-                                };
+                                const updatedSections = formData.sections.map((sec, idx) => 
+                                  idx === sectionIndex 
+                                    ? { ...sec, description: e.target.value || null }
+                                    : sec
+                                );
                                 setFormData({ ...formData, sections: updatedSections });
                               }}
                               placeholder="Section description (optional)"
-                              className="w-full text-sm text-gray-600 bg-white border-none outline-none focus:bg-gray-50 rounded px-3 py-2 transition-colors resize-none placeholder-gray-400"
+                              className="w-full text-xs sm:text-sm text-gray-600 bg-white border-none outline-none focus:bg-gray-50 rounded px-2 sm:px-3 py-1.5 sm:py-2 transition-colors resize-none placeholder-gray-400"
                               rows={2}
                               style={{ minHeight: '24px' }}
                             />
@@ -1579,7 +1650,7 @@ export default function Form() {
                     ))}
                     
                     {/* Add Question Button for this Section */}
-                    <div className="mt-4 mb-6">
+                    <div className="mt-3 sm:mt-4 mb-4 sm:mb-6">
                       <button 
                         onClick={() => {
                           const newQuestion = {
@@ -1599,12 +1670,12 @@ export default function Form() {
                             setFormData({ ...formData, sections: updatedSections });
                           }
                         }}
-                        className="inline-flex items-center space-x-2 px-4 py-2 rounded-md bg-white text-sm font-medium hover:bg-gray-50 transition-colors"
+                        className="inline-flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md bg-white text-xs sm:text-sm font-medium hover:bg-gray-50 transition-colors"
                         style={{ 
                           color: formSettings.themeColor
                         }}
                       >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                         <span>
@@ -1618,22 +1689,22 @@ export default function Form() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-6 sm:py-8 text-sm sm:text-base text-gray-500">
                   No questions yet. Add your first question below.
                 </div>
               )}
 
               {/* Default Add Question Button for empty forms */}
               {(!formData.sections || formData.sections.length === 0) && (
-                <div className="mb-6">
+                <div className="mb-4 sm:mb-6">
                   <button 
                     onClick={addQuestion}
-                    className="inline-flex items-center space-x-2 px-4 py-2 rounded-md bg-white text-sm font-medium hover:bg-gray-50 transition-colors"
+                    className="inline-flex items-center space-x-1.5 sm:space-x-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-md bg-white text-xs sm:text-sm font-medium hover:bg-gray-50 transition-colors"
                     style={{ 
                       color: formSettings.themeColor
                     }}
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
                     <span>Add Question</span>
@@ -1644,7 +1715,7 @@ export default function Form() {
 
             {/* Actions */}
             <div className="flex justify-between items-center">
-              <Link href="/" className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium hover:bg-gray-50 transition-colors" style={{ color: formSettings.themeColor }}>
+              <Link href="/" className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 border border-gray-300 rounded-md shadow-sm bg-white text-xs sm:text-sm font-medium hover:bg-gray-50 transition-colors" style={{ color: formSettings.themeColor }}>
                 ← Back to Home
               </Link>
             </div>
@@ -1655,47 +1726,50 @@ export default function Form() {
         {activeTab === 'responses' && (
           <div>
             {/* Response Stats */}
-            <div className="bg-white rounded-lg border border-gray-200 mb-6 p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  {formData.published && (
-                    <div className="flex items-center space-x-3">
-                      <span className="text-sm text-gray-600">Accepting responses:</span>
-                      <button
-                        onClick={toggleResponseAcceptance}
-                        disabled={saving}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          formData.acceptingResponses ? 'bg-green-600' : 'bg-gray-300'
-                        } ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            formData.acceptingResponses ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                      <span className={`text-sm font-medium ${
-                        formData.acceptingResponses ? 'text-green-600' : 'text-gray-500'
-                      }`}>
-                        {formData.acceptingResponses ? 'On' : 'Off'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <div className="text-2xl font-bold text-blue-600">{responseCount}</div>
+            <div className="bg-white rounded-lg border border-gray-200 mb-4 sm:mb-6 p-4 sm:p-6">
+              <div className="flex flex-col gap-4">
+                {/* Top Row: Accepting Responses Toggle */}
+                {formData.published && (
+                  <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
+                    <span className="text-xs sm:text-sm text-gray-600">Accepting responses:</span>
+                    <button
+                      onClick={toggleResponseAcceptance}
+                      disabled={saving}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${
+                        formData.acceptingResponses ? 'bg-green-600' : 'bg-gray-300'
+                      } ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          formData.acceptingResponses ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-xs sm:text-sm font-medium ${
+                      formData.acceptingResponses ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {formData.acceptingResponses ? 'On' : 'Off'}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Bottom Row: Total Responses and Menu */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="text-2xl sm:text-3xl font-bold text-blue-600">{responseCount}</div>
                       {loadingResponses && (
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent"></div>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent flex-shrink-0"></div>
                       )}
                     </div>
-                    <div className="text-lg font-medium text-gray-700">Total Response{responseCount === 1 ? '' : 's'}</div>
+                    <div className="text-sm sm:text-base lg:text-lg font-medium text-gray-700 truncate">
+                      Response{responseCount === 1 ? '' : 's'}
+                    </div>
                   </div>
                   
                   {/* 3-dot menu for delete all responses */}
                   {responseCount > 0 && (
-                    <div className="relative">
+                    <div className="relative flex-shrink-0">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1710,7 +1784,7 @@ export default function Form() {
                       
                       {/* Dropdown Menu */}
                       {openMenuId === 'responses-menu' && (
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-20">
+                        <div className="absolute right-0 top-full mt-2 w-48 sm:w-52 bg-white rounded-md shadow-lg border border-gray-200 z-20">
                           <div className="py-1">
                             <button
                               onClick={async (e) => {
@@ -1739,9 +1813,8 @@ export default function Form() {
                                   }
                                 }
                               }}
-                              className="flex items-center space-x-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 text-left">
+                              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                               <span>Delete all responses</span>
@@ -1757,18 +1830,18 @@ export default function Form() {
 
             {/* Responses List */}
             {loadingResponses ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-8">
+              <div className="bg-white rounded-lg border border-gray-200 p-6 sm:p-8">
                 <LoadingSpinner message="Loading responses..." size="md" fullScreen={false} />
               </div>
             ) : responseCount === 0 ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+              <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
                 <div className="max-w-md mx-auto">
-                  <div className="text-6xl mb-4">📝</div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No responses yet</h3>
-                  <p className="text-gray-600 mb-6">Share your form to start collecting responses from users.</p>
-                  <div className="space-y-3">
-                    <div className="text-sm text-gray-500">Share your form:</div>
-                    <div className="bg-gray-50 p-3 rounded-md text-sm font-mono text-gray-800 border break-all">
+                  <div className="text-5xl sm:text-6xl mb-3 sm:mb-4">📝</div>
+                  <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">No responses yet</h3>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Share your form to start collecting responses from users.</p>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="text-xs sm:text-sm text-gray-500">Share your form:</div>
+                    <div className="bg-gray-50 p-2 sm:p-3 rounded-md text-xs sm:text-sm font-mono text-gray-800 border break-all">
                       {typeof window !== 'undefined' ? `${window.location.origin}/forms/${formId}/view` : ''}
                     </div>
                     <button 
@@ -1792,30 +1865,30 @@ export default function Form() {
               </div>
             ) : (
               responseData && (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {responseData.responses.map((response, index) => (
                     <div key={response.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                       
                       {/* Response Header */}
                       <div 
-                        className="p-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between"
+                        className="p-3 sm:p-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between gap-3"
                         onClick={() => toggleResponseExpansion(response.id)}
                       >
-                        <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
                           <div className="flex-shrink-0">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-sm font-medium text-blue-600">#{index + 1}</span>
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                              <span className="text-xs sm:text-sm font-medium text-blue-600">#{index + 1}</span>
                             </div>
                           </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">Response #{index + 1}</div>
-                            <div className="text-sm text-gray-500">{formatDate(response.createdAt)}</div>
+                          <div className="min-w-0">
+                            <div className="text-xs sm:text-sm font-medium text-gray-900 truncate">Response #{index + 1}</div>
+                            <div className="text-xs sm:text-sm text-gray-500 truncate">{formatDate(response.createdAt)}</div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500">{response.answers.length} answer{response.answers.length === 1 ? '' : 's'}</span>
+                        <div className="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+                          <span className="text-xs sm:text-sm text-gray-500">{response.answers.length} answer{response.answers.length === 1 ? '' : 's'}</span>
                           <svg
-                            className={`w-5 h-5 text-gray-400 transition-transform ${
+                            className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-400 transition-transform ${
                               expandedResponse === response.id ? 'rotate-180' : ''
                             }`}
                             fill="none"
@@ -1829,12 +1902,12 @@ export default function Form() {
 
                       {/* Response Details */}
                       {expandedResponse === response.id && (
-                        <div className="border-t border-gray-200 p-4 bg-gray-50">
-                          <div className="space-y-4">
+                        <div className="border-t border-gray-200 p-3 sm:p-4 bg-gray-50">
+                          <div className="space-y-3 sm:space-y-4">
                             {response.answers.map((answer, answerIndex) => (
-                              <div key={answerIndex} className="bg-white p-4 rounded-md border border-gray-200">
+                              <div key={answerIndex} className="bg-white p-3 sm:p-4 rounded-md border border-gray-200">
                                 <div 
-                                  className="text-sm font-medium text-gray-900 mb-2 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
+                                  className="text-xs sm:text-sm font-medium text-gray-900 mb-2 [&_a]:text-blue-600 [&_a]:underline [&_a]:cursor-pointer"
                                   dangerouslySetInnerHTML={{ __html: answer.questionText }}
                                   onClick={(e) => {
                                     const target = e.target as HTMLElement;
@@ -1844,7 +1917,7 @@ export default function Form() {
                                     }
                                   }}
                                 />
-                                <div className="text-sm text-gray-700 bg-gray-50 p-3 rounded border">
+                                <div className="text-xs sm:text-sm text-gray-700 bg-gray-50 p-2 sm:p-3 rounded border break-words">
                                   {renderAnswer(answer)}
                                 </div>
                               </div>
@@ -1862,48 +1935,42 @@ export default function Form() {
 
         {/* Settings Tab Content */}
         {activeTab === 'settings' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             
             {/* New Form Notice */}
             {!isExistingForm && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2">
-                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4">
+                <div className="flex items-center space-x-1.5 sm:space-x-2">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-yellow-800 font-medium">New Form</span>
+                  <span className="text-sm sm:text-base text-yellow-800 font-medium">New Form</span>
                 </div>
-                <p className="text-yellow-700 text-sm mt-2">
+                <p className="text-xs sm:text-sm text-yellow-700 mt-2">
                   Please save your form first before configuring settings. Settings will be available after the form is created.
                 </p>
               </div>
             )}
 
             {/* Form Settings */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="flex items-center mb-6">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                  <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.5a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                               <h3 className="text-lg font-medium text-gray-900">Form Settings</h3>
+            <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
+              <div className="flex items-center mb-4 sm:mb-6">
+                <h3 className="text-base sm:text-lg font-medium text-gray-900">Form Settings</h3>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 
                 {/* Theme Customization */}
-                <div className="space-y-4">
-                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                     Theme Customization
                   </h4>
                   
                   {/* Color Selection */}
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     <div>
-                      <label className="text-sm font-medium text-gray-700 mb-3 block">Choose Color</label>
-                      <div className="grid grid-cols-6 gap-2 mb-3">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700 mb-2 sm:mb-3 block">Choose Color</label>
+                      <div className="grid grid-cols-6 sm:grid-cols-6 gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                         {predefinedColors.map((color) => (
                           <div key={color.value} className="relative group">
                             <button
@@ -1928,7 +1995,7 @@ export default function Form() {
                                   };
                                 });
                               }}
-                              className={`w-12 h-12 rounded-full border-2 transition-all hover:scale-105 ${
+                              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 transition-all hover:scale-105 ${
                                 formSettings.themeColor === color.value
                                   ? 'border-gray-800 ring-2 ring-gray-300'
                                   : 'border-gray-300 hover:border-gray-400'
@@ -1939,14 +2006,14 @@ export default function Form() {
                             
                             {/* Hover Tooltip */}
                             <div 
-                              className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10"
+                              className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 sm:mb-2 px-2 sm:px-3 py-1.5 sm:py-2 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10"
                               style={{ backgroundColor: color.value }}
                             >
                               <div className="font-medium">{color.name}</div>
                               <div className="text-gray-200">{color.value}</div>
                               {/* Tooltip Arrow - Perfectly Centered */}
                               <div 
-                                className="absolute top-full left-1/2 border-4 border-transparent"
+                                className="absolute top-full left-1/2 border-[3px] sm:border-4 border-transparent"
                                 style={{ 
                                   borderTopColor: color.value,
                                   transform: 'translateX(-50%)',
@@ -1960,12 +2027,12 @@ export default function Form() {
                         {/* Custom Color Option */}
                         <button
                           onClick={() => setShowCustomColorInput(!showCustomColorInput)}
-                          className={`w-12 h-12 rounded-full border-2 border-dashed border-gray-400 transition-all hover:border-gray-500 flex items-center justify-center text-gray-500 hover:text-gray-600 ${
+                          className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-dashed border-gray-400 transition-all hover:border-gray-500 flex items-center justify-center text-gray-500 hover:text-gray-600 ${
                             showCustomColorInput ? 'bg-gray-100' : 'bg-white'
                           }`}
                           title="Custom Color"
                         >
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                           </svg>
                         </button>
@@ -1973,7 +2040,7 @@ export default function Form() {
                       
                       {/* Custom Color Input */}
                       {showCustomColorInput && (
-                        <div className="flex items-center space-x-3 mt-3 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 mt-2 sm:mt-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
                           <input
                             type="color"
                             value={formSettings.themeColor}
@@ -1997,7 +2064,7 @@ export default function Form() {
                                 };
                               });
                             }}
-                            className="w-10 h-10 rounded border border-gray-300 cursor-pointer"
+                            className="w-full sm:w-10 h-10 rounded border border-gray-300 cursor-pointer"
                           />
                           <input
                             type="text"
@@ -2027,7 +2094,7 @@ export default function Form() {
                                 setFormSettings(prev => ({ ...prev, themeColor: newColor }));
                               }
                             }}
-                            className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                            className="flex-1 px-2 sm:px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm font-mono"
                             placeholder="#000000"
                           />
                         </div>
@@ -2075,22 +2142,22 @@ export default function Form() {
                 </div>
                 
                 {/* Question Settings */}
-                <div className="space-y-4">
-                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                     Question Settings
                   </h4>
                   
                   {/* Shuffle Questions */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-700">Randomize Question Order</label>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700">Randomize Question Order</label>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                         Questions will appear in random order for each respondent. This helps reduce response bias and ensures fair distribution of attention across all questions.
                       </p>
                     </div>
                     <button
                       onClick={() => setFormSettings(prev => ({ ...prev, shuffleQuestions: !prev.shuffleQuestions }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                         formSettings.shuffleQuestions ? 'bg-blue-600' : 'bg-gray-300'
                       }`}
                     >
@@ -2103,16 +2170,16 @@ export default function Form() {
                   </div>
 
                   {/* Show Progress */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-700">Show Progress Bar</label>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700">Show Progress Bar</label>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                         Display progress indicator to respondents
                       </p>
                     </div>
                     <button
                       onClick={() => setFormSettings(prev => ({ ...prev, showProgress: !prev.showProgress }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                         formSettings.showProgress ? 'bg-blue-600' : 'bg-gray-300'
                       }`}
                     >
@@ -2125,16 +2192,16 @@ export default function Form() {
                   </div>
 
                   {/* Make Questions Required by Default */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-700">Make Questions Required by Default</label>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700">Make Questions Required by Default</label>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                         New questions will be marked as required automatically. You can still make individual questions optional later.
                       </p>
                     </div>
                     <button
                       onClick={() => setFormSettings(prev => ({ ...prev, defaultRequired: !prev.defaultRequired }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                         formSettings.defaultRequired ? 'bg-blue-600' : 'bg-gray-300'
                       }`}
                     >
@@ -2148,22 +2215,22 @@ export default function Form() {
                 </div>
 
                 {/* Response Settings */}
-                <div className="space-y-4">
-                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                     Response Settings
                   </h4>
                   
                   {/* Collect Email */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-700">Collect Email Addresses</label>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700">Collect Email Addresses</label>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                         Require respondents to provide their email address
                       </p>
                     </div>
                     <button
                       onClick={() => setFormSettings(prev => ({ ...prev, collectEmail: !prev.collectEmail }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                         formSettings.collectEmail ? 'bg-blue-600' : 'bg-gray-300'
                       }`}
                     >
@@ -2176,16 +2243,16 @@ export default function Form() {
                   </div>
 
                   {/* Multiple Responses */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-700">Allow Multiple Responses</label>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700">Allow Multiple Responses</label>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                         Users can submit multiple responses to this form
                       </p>
                     </div>
                     <button
                       onClick={() => setFormSettings(prev => ({ ...prev, allowMultipleResponses: !prev.allowMultipleResponses }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                         formSettings.allowMultipleResponses ? 'bg-blue-600' : 'bg-gray-300'
                       }`}
                     >
@@ -2210,7 +2277,7 @@ export default function Form() {
                         </div>
                         <button
                           onClick={() => setFormSettings(prev => ({ ...prev, allowResponseEditing: !prev.allowResponseEditing }))}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                             formSettings.allowResponseEditing ? 'bg-blue-600' : 'bg-gray-300'
                           }`}
                         >
@@ -2224,18 +2291,17 @@ export default function Form() {
 
                       {/* Edit time limit - only show when response editing is enabled */}
                       {formSettings.allowResponseEditing && (
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <label className="text-sm font-medium text-gray-700">Edit time limit</label>
-                            <p className="text-sm text-gray-500 mt-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+                          <div className="flex-1 min-w-0">
+                            <label className="text-xs sm:text-sm font-medium text-gray-700">Edit time limit</label>
+                            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                               How long users can edit their responses
                             </p>
                           </div>
                           <select
                             value={formSettings.editTimeLimit}
                             onChange={(e) => setFormSettings(prev => ({ ...prev, editTimeLimit: e.target.value }))}
-                            className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm min-w-[120px]"
-                          >
+                            className="px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm w-full sm:min-w-[120px] sm:w-auto">
                             <option value="24h">24 Hours</option>
                             <option value="7d">7 Days</option>
                             <option value="30d">30 Days</option>
@@ -2248,14 +2314,14 @@ export default function Form() {
 
                   {/* Quiz mode restriction notice - only show when quiz is enabled */}
                   {formSettings.isQuiz && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                      <div className="flex items-center space-x-2">
-                        <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-2 sm:p-3">
+                      <div className="flex items-center space-x-1.5 sm:space-x-2">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                         </svg>
-                        <span className="text-orange-800 text-sm font-medium">Quiz Mode Active</span>
+                        <span className="text-orange-800 text-xs sm:text-sm font-medium">Quiz Mode Active</span>
                       </div>
-                      <p className="text-orange-700 text-sm mt-1">
+                      <p className="text-orange-700 text-xs sm:text-sm mt-1">
                         Response editing is automatically disabled in quiz mode to maintain academic integrity.
                       </p>
                     </div>
@@ -2264,22 +2330,22 @@ export default function Form() {
                 </div>
 
                 {/* Quiz Settings */}
-                <div className="space-y-4">
-                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                     Quiz Settings
                   </h4>
                   
                   {/* Make this a quiz */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <label className="text-sm font-medium text-gray-700">Make this a quiz</label>
-                      <p className="text-sm text-gray-500 mt-1">
+                  <div className="flex items-start sm:items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0 pr-2">
+                      <label className="text-xs sm:text-sm font-medium text-gray-700">Make this a quiz</label>
+                      <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                         Collect and grade responses with automatic scoring
                       </p>
                     </div>
                     <button
                       onClick={() => setFormSettings(prev => ({ ...prev, isQuiz: !prev.isQuiz }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                         formSettings.isQuiz ? 'bg-blue-600' : 'bg-gray-300'
                       }`}
                     >
@@ -2295,16 +2361,16 @@ export default function Form() {
                   {formSettings.isQuiz && (
                     <>
                       {/* Release grades immediately */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <label className="text-sm font-medium text-gray-700">Release grades immediately</label>
-                          <p className="text-sm text-gray-500 mt-1">
+                      <div className="flex items-start sm:items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <label className="text-xs sm:text-sm font-medium text-gray-700">Release grades immediately</label>
+                          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                             Show quiz results right after submission
                           </p>
                         </div>
                         <button
                           onClick={() => setFormSettings(prev => ({ ...prev, releaseGrades: !prev.releaseGrades }))}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
                             formSettings.releaseGrades ? 'bg-blue-600' : 'bg-gray-300'
                           }`}
                         >
@@ -2317,10 +2383,10 @@ export default function Form() {
                       </div>
 
                       {/* Show correct answers */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <label className="text-sm font-medium text-gray-700">Show correct answers</label>
-                          <p className="text-sm text-gray-500 mt-1">
+                      <div className="flex items-start sm:items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0 pr-2">
+                          <label className="text-xs sm:text-sm font-medium text-gray-700">Show correct answers</label>
+                          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
                             Display correct answers after quiz submission
                           </p>
                         </div>
@@ -2342,19 +2408,19 @@ export default function Form() {
                 </div>
 
                 {/* Confirmation Message */}
-                <div className="space-y-4">
-                  <h4 className="text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
+                <div className="space-y-3 sm:space-y-4">
+                  <h4 className="text-sm sm:text-base font-medium text-gray-800 border-b border-gray-200 pb-2">
                     Confirmation Message
                   </h4>
                   
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                    <label className="text-xs sm:text-sm font-medium text-gray-700 block mb-2">
                       Message shown after form submission
                     </label>
                     <textarea
                       value={formSettings.confirmationMessage}
                       onChange={(e) => setFormSettings(prev => ({ ...prev, confirmationMessage: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="w-full px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
                       rows={3}
                       placeholder="Enter confirmation message..."
                     />
@@ -2364,7 +2430,7 @@ export default function Form() {
               </div>
 
               {/* Save Settings Button */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-200">
                 <div className="flex justify-end">
                   <button
                     onClick={async () => {
@@ -2418,10 +2484,10 @@ export default function Form() {
 
       {/* Delete Section Confirmation Dialog */}
       {showDeleteDialog && sectionToDelete && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-200">
-          <div className="bg-white rounded-lg p-6 max-w-sm mx-4 shadow-lg">
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Delete section?</h3>
-            <p className="text-gray-600 text-sm mb-6">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-200 px-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-sm w-full shadow-lg">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Delete section?</h3>
+            <p className="text-gray-600 text-xs sm:text-sm mb-4 sm:mb-6">
               Section {sectionToDelete.index + 1} has {sectionToDelete.questionCount} {sectionToDelete.questionCount === 1 ? 'question' : 'questions'}. 
               What would you like to do with {sectionToDelete.questionCount === 1 ? 'it' : 'them'}?
             </p>
@@ -2429,14 +2495,14 @@ export default function Form() {
             <div className="space-y-2">
               <button
                 onClick={handleMergeSection}
-                className="w-full px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md text-sm transition-colors"
+                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md text-xs sm:text-sm transition-colors"
               >
                 Move to previous section
               </button>
               
               <button
                 onClick={handleDeleteEntireSection}
-                className="w-full px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md text-sm transition-colors"
+                className="w-full px-3 sm:px-4 py-1.5 sm:py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-md text-xs sm:text-sm transition-colors"
               >
                 Delete questions permanently
               </button>
@@ -2444,7 +2510,7 @@ export default function Form() {
             
             <button
               onClick={handleCancelDelete}
-              className="w-full mt-3 px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-md text-sm transition-colors"
+              className="w-full mt-2 sm:mt-3 px-3 sm:px-4 py-1.5 sm:py-2 text-gray-600 hover:bg-gray-50 rounded-md text-xs sm:text-sm transition-colors"
             >
               Cancel
             </button>
